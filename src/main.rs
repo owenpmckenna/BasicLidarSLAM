@@ -1,5 +1,6 @@
 extern crate serialport;
 
+use std::time::Duration;
 use serial2::SerialPort;
 
 fn main() {
@@ -10,10 +11,12 @@ fn main() {
     let mut rplidar = RplidarDevice::with_stream(serial_port);
 
     let device_info = rplidar.get_device_info().unwrap();
-    rplidar.start_scan().unwrap();
+    println!("device info: {:?}", device_info);
+    let scan_type = rplidar.start_scan().unwrap();
+    println!("scan type: {:?}", scan_type);
 
     while true {
-        let scan_point = rplidar.grab_scan_point().unwrap();
+        let scan_point = rplidar.grab_scan_point_with_timeout(Duration::from_secs(5)).unwrap();
 
         println!("dist: {}", scan_point.dist_mm_q2);
         println!("angle: {}", scan_point.angle_z_q14);
