@@ -3,7 +3,7 @@ fn main() {
     println!("Hello, world!");
     use rplidar_drv::RplidarDevice;
 
-    let mut serial_port = serialport::new("/dev/usbtty0", 1).open().unwrap();
+    let mut serial_port = serialport::new("/dev/ttyUSB0", 1).open().unwrap();
     let mut rplidar = RplidarDevice::with_stream(serial_port);
 
     let device_info = rplidar.get_device_info().unwrap();
