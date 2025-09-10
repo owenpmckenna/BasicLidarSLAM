@@ -1,8 +1,8 @@
 extern crate serialport;
 
 use std::time::Duration;
-use rplidar_drv::{ScanMode, ScanOptions};
-use serial2::SerialPort;
+//use rplidar_drv::{ScanMode, ScanOptions};
+//use serial2::SerialPort;
 
 fn main() {
     println!("Hello, world!");
@@ -15,8 +15,8 @@ fn main() {
     println!("device info: {:?}", device_info);
     let scan_type = rplidar.start_scan().unwrap();
     println!("scan type: {:?}", scan_type);
-    let health = rplidar.get_device_health().unwrap();
-    println!("health: {:?}", health);
+    //let health = rplidar.get_device_health().unwrap();
+    //println!("health: {:?}", health);
 
     loop {
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
