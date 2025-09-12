@@ -15,18 +15,21 @@ fn main() {
 
     let device_info = rplidar.get_device_info().unwrap();
     println!("device info: {:?}", device_info);
-    //let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    //rplidar.start_motor().expect("Motor start failed somehow");
-    //println!("scan type: {:?}", scan_type);
+    rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
+    println!("start motor done");
+    sleep(Duration::from_secs(5));
+    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
+    println!("scan type: {:?}", scan_type);
     //let health = rplidar.get_device_health().unwrap();
     //println!("health: {:?}", health);
 
-    /*sleep(Duration::from_secs(5));
+    sleep(Duration::from_secs(5));
     loop {
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
             println!("dist: {}", scan_point.dist_mm_q2);
             println!("angle: {}", scan_point.angle_z_q14);
         }
-    }*/
-    println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
+    }
+    //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
 }
+//Scan types: Standard, Express, Boost, Sensitivity, Stability
