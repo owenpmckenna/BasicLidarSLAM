@@ -28,5 +28,5 @@ fn main() {
             println!("angle: {}", scan_point.angle_z_q14);
         }
     }*/
-    println!("Grab one point! {}", rplidar.grab_scan_point().unwrap())
+    println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
 }
