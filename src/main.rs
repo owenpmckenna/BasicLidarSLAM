@@ -15,9 +15,9 @@ fn main() {
 
     let device_info = rplidar.get_device_info().unwrap();
     println!("device info: {:?}", device_info);
-    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    rplidar.start_motor().expect("Motor start failed somehow");
-    println!("scan type: {:?}", scan_type);
+    //let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
+    //rplidar.start_motor().expect("Motor start failed somehow");
+    //println!("scan type: {:?}", scan_type);
     //let health = rplidar.get_device_health().unwrap();
     //println!("health: {:?}", health);
 
