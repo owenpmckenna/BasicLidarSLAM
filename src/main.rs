@@ -3,14 +3,26 @@ extern crate serialport;
 use std::thread::{sleep, Thread};
 use std::time::Duration;
 use rplidar_drv::ScanOptions;
+use serialport::{DataBits, FlowControl, Parity, SerialPortSettings, StopBits};
 //use rplidar_drv::{ScanMode, ScanOptions};
 //use serial2::SerialPort;
 
 fn main() {
     println!("Hello, world!");
     use rplidar_drv::RplidarDevice;
-    //let serial_port = SerialPort::open("/dev/ttyUSB0".to_owned(), 115200).unwrap();
-    let serial_port = serialport::new("/dev/ttyUSB0", 115200).open().unwrap();
+    //let serial_port = SerialPort::open("/dev/ttyUSB0".to_owned(), 115200).unwrap();\
+    let s = SerialPortSettings {
+        baud_rate: 115200,
+        data_bits: DataBits::Eight,
+        flow_control: FlowControl::None,
+        parity: Parity::None,
+        stop_bits: StopBits::One,
+        timeout: Duration::from_millis(10),
+    };
+    let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s).unwrap();
+    serial_port
+        .write_data_terminal_ready(false)
+        .expect("failed to clear DTR");
     let mut rplidar = RplidarDevice::with_stream(serial_port);
 
     let device_info = rplidar.get_device_info().unwrap();
