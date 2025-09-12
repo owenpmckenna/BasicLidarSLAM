@@ -38,8 +38,8 @@ fn main() {
     sleep(Duration::from_secs(5));
     loop {
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
-            println!("dist: {}", scan_point.dist_mm_q2);
-            println!("angle: {}", scan_point.angle_z_q14);
+            println!("dist: {}", scan_point.distance());
+            println!("angle: {}", scan_point.angle());
         }
     }
     //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
