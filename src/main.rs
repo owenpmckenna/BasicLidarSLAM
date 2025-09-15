@@ -29,18 +29,25 @@ fn main() {
     println!("device info: {:?}", device_info);
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     println!("start motor done");
-    sleep(Duration::from_secs(5));
+    //sleep(Duration::from_secs(5));
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
     println!("scan type: {:?}", scan_type);
     //let health = rplidar.get_device_health().unwrap();
     //println!("health: {:?}", health);
 
     sleep(Duration::from_secs(5));
+    let mut x = 0;
+    let mut y = 0;
     loop {
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
             println!("dist: {}", scan_point.distance());
             println!("angle: {}", scan_point.angle());
+            println!("x: {}", x);
+            x += 1;
         }
+        println!("y: {}", y);
+        y += 1;
+        x = 0;
     }
     //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
 }
