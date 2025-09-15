@@ -38,16 +38,19 @@ fn main() {
     sleep(Duration::from_secs(5));
     let mut x = 0;
     let mut y = 0;
+    let mut total: f32 = 0.0;
     loop {
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
-            println!("dist: {}", scan_point.distance());
-            println!("angle: {}", scan_point.angle());
-            println!("x: {}", x);
+            //println!("dist: {}", scan_point.distance());
+            //println!("angle: {}", scan_point.angle());
+            //println!("x: {}", x);
+            total += scan_point.distance();
             x += 1;
         }
+        println!("total: {}", total/(x as f32));
         println!("y: {}", y);
         y += 1;
-        x = 0;
+        //x = 0;
     }
     //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
 }
