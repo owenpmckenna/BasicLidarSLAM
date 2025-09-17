@@ -41,7 +41,6 @@ fn main() {
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     //println!("start motor done");
     //sleep(Duration::from_secs(5));
-    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
     //println!("scan type: {:?}", scan_type);
     //let health = rplidar.get_device_health().unwrap();
     //println!("health: {:?}", health);
@@ -51,7 +50,9 @@ fn main() {
     let mut y = 0;
     let mut total: f32 = 0.0;
     let mut data: Vec<(f32, f32)> = Vec::new();
-    for i in 0..2 {
+    for i in 0..10 {
+        let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
+        rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
         for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
             print!("{},", scan_point.distance());
             println!("{}", scan_point.angle());
@@ -60,6 +61,7 @@ fn main() {
             //println!("x: {}", x);
             x += 1;
         }
+        rplidar.stop().expect("Stopping failed.");
         //println!("total: {}", total/(x as f32));
         //println!("y: {}", y);
         y += 1;
