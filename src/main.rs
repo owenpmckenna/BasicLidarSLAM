@@ -50,8 +50,8 @@ fn main() {
     let mut y = 0;
     let mut total: f32 = 0.0;
     let mut data: Vec<(f32, f32)> = Vec::new();
-    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
+    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
     for i in 0..1000 {
         let scan_point = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15)).unwrap();
         print!("{},", scan_point.distance());
