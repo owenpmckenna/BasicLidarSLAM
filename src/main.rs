@@ -50,23 +50,22 @@ fn main() {
     let mut y = 0;
     let mut total: f32 = 0.0;
     let mut data: Vec<(f32, f32)> = Vec::new();
-    for i in 0..10 {
-        let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-        rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
-        for scan_point in rplidar.grab_scan_with_timeout(Duration::from_secs(15)).unwrap() {
-            print!("{},", scan_point.distance());
-            println!("{}", scan_point.angle());
-            let p = polar_to_cartesian_radians(scan_point.distance(), scan_point.angle());
-            data.push(p);
-            //println!("x: {}", x);
-            x += 1;
-        }
-        rplidar.stop().expect("Stopping failed.");
+    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
+    rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
+    for i in 0..1000 {
+        let scan_point = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15)).unwrap();
+        print!("{},", scan_point.distance());
+        println!("{}", scan_point.angle());
+        let p = polar_to_cartesian_radians(scan_point.distance(), scan_point.angle());
+        data.push(p);
+        //println!("x: {}", x);
+        x += 1;
         //println!("total: {}", total/(x as f32));
         //println!("y: {}", y);
         y += 1;
         //x = 0;
     }
+    rplidar.stop().expect("Stopping failed.");
     let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
     let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
     let mut scatter_ctx = ChartBuilder::on(&root)
