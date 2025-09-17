@@ -36,9 +36,10 @@ fn main() {
         .expect("failed to clear DTR");
     let mut rplidar = RplidarDevice::with_stream(serial_port);
 
-    let device_info = rplidar.get_device_info().unwrap();
+    rplidar.stop_motor().expect("Motor stop failed somehow");
+    rplidar.stop().expect("Stop failed somehow");
+    //let device_info = rplidar.get_device_info().unwrap();
     //println!("device info: {:?}", device_info);
-    rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     //println!("start motor done");
     //sleep(Duration::from_secs(5));
     //println!("scan type: {:?}", scan_type);
@@ -51,6 +52,7 @@ fn main() {
     let mut total: f32 = 0.0;
     let mut data: Vec<(f32, f32)> = Vec::new();
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
+    rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
     for i in 0..1000 {
         let scan_point = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15)).unwrap();
