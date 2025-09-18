@@ -1,5 +1,6 @@
 extern crate serialport;
 
+use std::cmp::max;
 use std::error::Error;
 use std::process::exit;
 use std::thread::{sleep, Thread};
@@ -104,8 +105,16 @@ fn main() {
     }
     
     println!("number of points: {}", data.len());
-    let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
-    let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
+    let mut mx: f32 = 0.0;
+    let mut my: f32 = 0.0;
+    for (x,y) in data {
+        mx = mx.max(x.abs());
+        my = my.max(y.abs());
+    }
+    //let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
+    //let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
+    let (xmin, xmax) = (-mx, mx);
+    let (ymin, ymax) = (-my, my);
     let mut scatter_ctx = ChartBuilder::on(&root)
         .x_label_area_size(40)
         .y_label_area_size(40)
