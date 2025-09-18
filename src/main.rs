@@ -17,10 +17,7 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let y = radius * theta_radians.sin();
     (x, y)
 }
-fn main() {
-    let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
-    root.fill(&WHITE).expect("Fill failed");
-    //println!("Hello, world!");
+fn grab_points() -> Vec<(f32, f32)> {
     use rplidar_drv::RplidarDevice;
     //let serial_port = SerialPort::open("/dev/ttyUSB0".to_owned(), 115200).unwrap();\
     let s = SerialPortSettings {
@@ -40,18 +37,6 @@ fn main() {
         serial_port,
     );
     let mut rplidar = RplidarDevice::new(channel);
-
-    //rplidar.stop_motor().expect("Motor stop failed somehow");
-    //rplidar.stop().expect("Stop failed somehow");
-    //let device_info = rplidar.get_device_info().unwrap();
-    //println!("device info: {:?}", device_info);
-    //println!("start motor done");
-    //sleep(Duration::from_secs(5));
-    //println!("scan type: {:?}", scan_type);
-    //let health = rplidar.get_device_health().unwrap();
-    //println!("health: {:?}", health);
-
-    //sleep(Duration::from_secs(5));
     let mut x = 0;
     let mut y = 0;
     let mut total: f32 = 0.0;
@@ -88,8 +73,33 @@ fn main() {
         y += 1;
         //x = 0;
     }
-    println!("number of points: {}", data.len());
     rplidar.stop().expect("Stopping failed.");
+    data
+}
+fn main() {
+    let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
+    root.fill(&WHITE).expect("Fill failed");
+    //println!("Hello, world!");
+
+    //rplidar.stop_motor().expect("Motor stop failed somehow");
+    //rplidar.stop().expect("Stop failed somehow");
+    //let device_info = rplidar.get_device_info().unwrap();
+    //println!("device info: {:?}", device_info);
+    //println!("start motor done");
+    //sleep(Duration::from_secs(5));
+    //println!("scan type: {:?}", scan_type);
+    //let health = rplidar.get_device_health().unwrap();
+    //println!("health: {:?}", health);
+
+    //sleep(Duration::from_secs(5));
+    let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
+
+    while data.len() < 15000 {
+        data.append(&mut grab_points());
+        println!("ran, now have {} points", data.len())
+    }
+    
+    println!("number of points: {}", data.len());
     let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
     let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
     let mut scatter_ctx = ChartBuilder::on(&root)
