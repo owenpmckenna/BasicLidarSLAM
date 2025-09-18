@@ -7,7 +7,8 @@ use std::thread::{sleep, Thread};
 use std::time::Duration;
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
-use plotters::drawing::IntoDrawingArea;
+use plotters::coord::Shift;
+use plotters::drawing::{DrawingArea, IntoDrawingArea};
 use plotters::element::Circle;
 use plotters::style::{Color, GREEN, WHITE};
 use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
@@ -42,11 +43,11 @@ fn grab_points() -> Result<Vec<(f32, f32)>, Box<dyn std::error::Error>> {
     let mut x = 0;
     let mut y = 0;
     let mut total: f32 = 0.0;
-    let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
+    let mut data: Vec<(f32, f32)> = Vec::with_capacity(7000);
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan())?;
-    'outer: for i in 0..100 {
+    'outer: for i in 0..5 {
         let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(it) => {
@@ -94,20 +95,38 @@ fn main() {
     //println!("health: {:?}", health);
 
     //sleep(Duration::from_secs(5));
-    let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
+    let mut data: Vec<(f32, f32)> = vec![(0.0,0.0); 100000];
+    let mut data2: Vec<(f32, f32)> = vec![(0.0,0.0); 100000];
+    let pg = 500; //number of elements to copy
 
-    while data.len() < 100000 {
-        match grab_points() {
-            Ok(mut it) => {data.append(&mut it);}
-            Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5))}
-        }
-        println!("ran, now have {} points", data.len())
+    loop {
+        let mut pg = 0;
+        let it = match grab_points() {
+            Ok(mut it) => {pg = it.len(); it}
+            Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5)); continue}
+        };
+        //copy the end of data to beginning of data2
+        data2[..pg].copy_from_slice(&data[100000-pg..]);
+        //copy the new data to the end of data2
+        data2[100000-pg..].copy_from_slice(&it);
+        //copy data2 back to data
+        let td = data;
+        data = data2;
+        data2 = td;
+        
+        println!("ran, now have {} points", data.len());
+        present(&root, &data);
     }
     
     println!("number of points: {}", data.len());
+    
+    //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
+    present(&root, &data);
+}
+fn present(root: &DrawingArea<BitMapBackend, Shift>, data: &Vec<(f32, f32)>) {
     let mut mx: f32 = 0.0;
     let mut my: f32 = 0.0;
-    for (x,y) in &data {
+    for (x,y) in data {
         mx = mx.max(x.abs());
         my = my.max(y.abs());
     }
@@ -132,6 +151,5 @@ fn main() {
             .map(|(x, y)| Circle::new((*x, *y), 2, GREEN.filled())),
     ).unwrap();
     root.present().expect("Unable to write result to file");
-    //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
 }
 //Scan types: Standard, Express, Boost, Sensitivity, Stability
