@@ -46,7 +46,7 @@ fn grab_points() -> Result<Vec<(f32, f32)>, Box<dyn std::error::Error>> {
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan())?;
-    'outer: for i in 0..50 {
+    'outer: for i in 0..100 {
         let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(it) => {
@@ -96,7 +96,7 @@ fn main() {
     //sleep(Duration::from_secs(5));
     let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
 
-    while data.len() < 15000 {
+    while data.len() < 150000 {
         match grab_points() {
             Ok(mut it) => {data.append(&mut it);}
             Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5))}
