@@ -7,7 +7,7 @@ use plotters::chart::ChartBuilder;
 use plotters::drawing::IntoDrawingArea;
 use plotters::element::Circle;
 use plotters::style::{Color, GREEN, WHITE};
-use rplidar_drv::ScanOptions;
+use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
 use serialport::{DataBits, FlowControl, Parity, SerialPortSettings, StopBits};
 //use rplidar_drv::{ScanMode, ScanOptions};
 //use serial2::SerialPort;
@@ -28,16 +28,20 @@ fn main() {
         flow_control: FlowControl::None,
         parity: Parity::None,
         stop_bits: StopBits::One,
-        timeout: Duration::from_millis(10),
+        timeout: Duration::from_millis(100),
     };
     let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s).unwrap();
     serial_port
         .write_data_terminal_ready(false)
         .expect("failed to clear DTR");
-    let mut rplidar = RplidarDevice::with_stream(serial_port);
+    let channel = Channel::<RplidarHostProtocol, dyn serialport::SerialPort>::new(
+        RplidarHostProtocol::new(),
+        serial_port,
+    );
+    let mut rplidar = RplidarDevice::new(channel);
 
-    rplidar.stop_motor().expect("Motor stop failed somehow");
-    rplidar.stop().expect("Stop failed somehow");
+    //rplidar.stop_motor().expect("Motor stop failed somehow");
+    //rplidar.stop().expect("Stop failed somehow");
     //let device_info = rplidar.get_device_info().unwrap();
     //println!("device info: {:?}", device_info);
     //println!("start motor done");
@@ -46,7 +50,7 @@ fn main() {
     //let health = rplidar.get_device_health().unwrap();
     //println!("health: {:?}", health);
 
-    sleep(Duration::from_secs(5));
+    //sleep(Duration::from_secs(5));
     let mut x = 0;
     let mut y = 0;
     let mut total: f32 = 0.0;
@@ -67,7 +71,15 @@ fn main() {
                     x += 1;
                 //}
             }
-            Err(it) => {println!("error: {}", it);}
+            Err(err) => {
+                if let Some(RposError::OperationTimeout) = err.downcast_ref::<RposError>() {
+                    println!("timeout...");
+                    continue;
+                } else {
+                    println!("Error: {:?}", err);
+                    break;
+                }
+            }
         };
         //println!("total: {}", total/(x as f32));
         //println!("y: {}", y);
