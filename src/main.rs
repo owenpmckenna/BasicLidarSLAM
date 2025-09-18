@@ -59,18 +59,18 @@ fn main() {
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    for i in 0..50000 {
-        let scan_data_o = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15));
+    for i in 0..50 {
+        let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
         match scan_data_o {
-            Ok(scan_point) => {
-                //for scan_point in it {
+            Ok(it) => {
+                for scan_point in it {
                     print!("{},", scan_point.distance());
                     println!("{}", scan_point.angle());
                     let p = polar_to_cartesian_radians(scan_point.distance(), scan_point.angle());
                     data.push(p);
                     //println!("x: {}", x);
                     x += 1;
-                //}
+                }
             }
             Err(err) => {
                 if let Some(RposError::OperationTimeout) = err.downcast_ref::<RposError>() {
