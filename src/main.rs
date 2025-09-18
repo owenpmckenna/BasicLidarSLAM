@@ -81,7 +81,6 @@ fn grab_points() -> Result<Vec<(f32, f32)>, Box<dyn std::error::Error>> {
 }
 fn main() {
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
-    root.fill(&WHITE).expect("Fill failed");
     //println!("Hello, world!");
 
     //rplidar.stop_motor().expect("Motor stop failed somehow");
@@ -102,7 +101,7 @@ fn main() {
     loop {
         let mut pg = 0;
         let it = match grab_points() {
-            Ok(mut it) => {pg = it.len(); it}
+            Ok(it) => {pg = it.len(); it}
             Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5)); continue}
         };
         //copy the end of data to beginning of data2
@@ -124,6 +123,7 @@ fn main() {
     present(&root, &data);
 }
 fn present(root: &DrawingArea<BitMapBackend, Shift>, data: &Vec<(f32, f32)>) {
+    root.fill(&WHITE).expect("Fill failed");
     let mut mx: f32 = 0.0;
     let mut my: f32 = 0.0;
     for (x,y) in data {
