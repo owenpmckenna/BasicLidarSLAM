@@ -1,5 +1,6 @@
 extern crate serialport;
 
+use std::error::Error;
 use std::process::exit;
 use std::thread::{sleep, Thread};
 use std::time::Duration;
@@ -17,7 +18,7 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let y = radius * theta_radians.sin();
     (x, y)
 }
-fn grab_points() -> Vec<(f32, f32)> {
+fn grab_points() -> Result<Vec<(f32, f32)>, Box<dyn std::error::Error>> {
     use rplidar_drv::RplidarDevice;
     //let serial_port = SerialPort::open("/dev/ttyUSB0".to_owned(), 115200).unwrap();\
     let s = SerialPortSettings {
@@ -28,7 +29,7 @@ fn grab_points() -> Vec<(f32, f32)> {
         stop_bits: StopBits::One,
         timeout: Duration::from_millis(100),
     };
-    let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s).unwrap();
+    let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s)?;
     serial_port
         .write_data_terminal_ready(false)
         .expect("failed to clear DTR");
@@ -43,14 +44,14 @@ fn grab_points() -> Vec<(f32, f32)> {
     let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
-    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
+    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan())?;
     'outer: for i in 0..50 {
         let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(it) => {
                 for scan_point in it {
-                    print!("{},", scan_point.distance());
-                    println!("{}", scan_point.angle());
+                    //print!("{},", scan_point.distance());
+                    //println!("{}", scan_point.angle());
                     let p = polar_to_cartesian_radians(scan_point.distance(), scan_point.angle());
                     data.push(p);
                     //println!("x: {}", x);
@@ -74,7 +75,7 @@ fn grab_points() -> Vec<(f32, f32)> {
         //x = 0;
     }
     rplidar.stop().expect("Stopping failed.");
-    data
+    Ok(data)
 }
 fn main() {
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
@@ -95,7 +96,10 @@ fn main() {
     let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
 
     while data.len() < 15000 {
-        data.append(&mut grab_points());
+        match grab_points() {
+            Ok(mut it) => {data.append(&mut it);}
+            Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5))}
+        }
         println!("ran, now have {} points", data.len())
     }
     
