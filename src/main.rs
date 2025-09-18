@@ -113,7 +113,7 @@ fn main() {
         data = data2;
         data2 = td;
         
-        println!("ran, now have {} points", data.len());
+        println!("ran, now have {} points, got {} from lidar", data.len(), it.len());
         present(&root, &data);
     }
     
