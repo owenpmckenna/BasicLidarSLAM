@@ -96,7 +96,7 @@ fn main() {
     //sleep(Duration::from_secs(5));
     let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
 
-    while data.len() < 150000 {
+    while data.len() < 100000 {
         match grab_points() {
             Ok(mut it) => {data.append(&mut it);}
             Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5))}
