@@ -59,7 +59,7 @@ fn main() {
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    for i in 0..50 {
+    'outer: for i in 0..50 {
         let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(it) => {
@@ -79,7 +79,7 @@ fn main() {
                 } else {
                     println!("Error: {:?}", err);
                     println!("Failed at: {}", i);
-                    exit(-1);
+                    break 'outer;
                 }
             }
         };
