@@ -94,8 +94,9 @@ fn main() {
     //println!("health: {:?}", health);
 
     //sleep(Duration::from_secs(5));
-    let mut data: Vec<(f32, f32)> = vec![(0.0,0.0); 100000];
-    let mut data2: Vec<(f32, f32)> = vec![(0.0,0.0); 100000];
+    const ARRAY_SIZE: usize = 10000;
+    let mut data: Vec<(f32, f32)> = vec![(0.0,0.0); ARRAY_SIZE];
+    let mut data2: Vec<(f32, f32)> = vec![(0.0,0.0); ARRAY_SIZE];
     let pg = 500; //number of elements to copy
 
     loop {
@@ -105,9 +106,9 @@ fn main() {
             Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5)); continue}
         };
         //copy the end of data to beginning of data2
-        data2[..pg].copy_from_slice(&data[100000-pg..]);
+        data2[..pg].copy_from_slice(&data[ARRAY_SIZE-pg..]);
         //copy the new data to the end of data2
-        data2[100000-pg..].copy_from_slice(&it);
+        data2[ARRAY_SIZE-pg..].copy_from_slice(&it);
         //copy data2 back to data
         let td = data;
         data = data2;
