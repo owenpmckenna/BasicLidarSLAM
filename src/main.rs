@@ -1,5 +1,6 @@
 extern crate serialport;
 
+use std::process::exit;
 use std::thread::{sleep, Thread};
 use std::time::Duration;
 use plotters::backend::BitMapBackend;
@@ -54,11 +55,11 @@ fn main() {
     let mut x = 0;
     let mut y = 0;
     let mut total: f32 = 0.0;
-    let mut data: Vec<(f32, f32)> = Vec::with_capacity(500000);
+    let mut data: Vec<(f32, f32)> = Vec::with_capacity(50000);
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    for _i in 0..500000 {
+    for i in 0..50000 {
         let scan_data_o = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(scan_point) => {
@@ -77,7 +78,8 @@ fn main() {
                     //continue;
                 } else {
                     println!("Error: {:?}", err);
-                    //break;
+                    println!("Failed at: {}", i);
+                    exit(-1);
                 }
             }
         };
