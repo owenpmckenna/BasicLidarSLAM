@@ -54,11 +54,11 @@ fn main() {
     let mut x = 0;
     let mut y = 0;
     let mut total: f32 = 0.0;
-    let mut data: Vec<(f32, f32)> = Vec::new();
+    let mut data: Vec<(f32, f32)> = Vec::with_capacity(500000);
     rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
     rplidar.start_motor().expect("Start motor failed");
     let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan()).unwrap();
-    for i in 0..5000 {
+    for _i in 0..500000 {
         let scan_data_o = rplidar.grab_scan_point_with_timeout(Duration::from_secs(15));
         match scan_data_o {
             Ok(scan_point) => {
