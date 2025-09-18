@@ -74,10 +74,10 @@ fn main() {
             Err(err) => {
                 if let Some(RposError::OperationTimeout) = err.downcast_ref::<RposError>() {
                     println!("timeout...");
-                    continue;
+                    //continue;
                 } else {
                     println!("Error: {:?}", err);
-                    break;
+                    //break;
                 }
             }
         };
@@ -86,6 +86,7 @@ fn main() {
         y += 1;
         //x = 0;
     }
+    println!("number of points: {}", data.len());
     rplidar.stop().expect("Stopping failed.");
     let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
     let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
