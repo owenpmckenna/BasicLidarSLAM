@@ -107,7 +107,7 @@ fn main() {
     println!("number of points: {}", data.len());
     let mut mx: f32 = 0.0;
     let mut my: f32 = 0.0;
-    for (x,y) in data {
+    for (x,y) in &data {
         mx = mx.max(x.abs());
         my = my.max(y.abs());
     }
