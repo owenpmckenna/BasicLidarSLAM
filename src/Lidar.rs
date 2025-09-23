@@ -1,0 +1,152 @@
+use std::error::Error;
+use std::time::Duration;
+use rplidar_drv::{Channel, RplidarDevice, RplidarHostProtocol, RposError};
+use serialport::{DataBits, FlowControl, Parity, SerialPort, SerialPortSettings, StopBits};
+
+pub(crate) const DATA_LEN: usize = 10000;
+const TIMEOUTS_MAX: usize = 10;
+const FATALS_MAX: usize = 10;
+fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
+    let x = radius * theta_radians.cos();
+    let y = radius * theta_radians.sin();
+    (x, y)
+}
+pub struct LidarUnit {
+    lidar_dev: Option<RplidarDevice<dyn SerialPort>>,
+    data: [(f32, f32); DATA_LEN],
+    data_index: usize,
+    fatals: usize,
+    timeouts: usize
+}
+impl LidarUnit {
+    pub(crate) fn get_data(&self) -> &[(f32, f32); DATA_LEN] {
+        &self.data
+    }
+    fn get_rplidar() -> Result<RplidarDevice<dyn SerialPort>, Box<dyn Error>> {
+        let s = SerialPortSettings {
+            baud_rate: 115200,
+            data_bits: DataBits::Eight,
+            flow_control: FlowControl::None,
+            parity: Parity::None,
+            stop_bits: StopBits::One,
+            timeout: Duration::from_millis(100),
+        };
+        let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s)?;
+        serial_port
+            .write_data_terminal_ready(false)
+            .expect("failed to clear DTR");
+        let channel = Channel::<RplidarHostProtocol, dyn serialport::SerialPort>::new(
+            RplidarHostProtocol::new(),
+            serial_port,
+        );
+        Ok(RplidarDevice::new(channel))
+    }
+    pub(crate) fn new() -> LidarUnit {
+        let rplidar = match Self::get_rplidar() {
+            Ok(it) => {Some(it)}
+            Err(err) => {println!("Error: {}", err); None}
+        };
+        LidarUnit {lidar_dev: rplidar, data: [(0f32, 0f32); DATA_LEN], data_index: 0, fatals: 0, timeouts: 0 }
+    }
+    fn regen_connection(&mut self) -> Option<()> {
+        {
+            //attempt to force disconnect
+            self.lidar_dev = None
+        }
+        self.lidar_dev = Some(match Self::get_rplidar() {
+            Ok(it) => {it}
+            Err(err) => {
+                println!("Error: {}", err);
+                self.fatals += 1;
+                if self.fatals > FATALS_MAX {
+                    return None
+                }
+                return self.regen_connection()
+            }
+        });
+        Some(())
+    }
+    fn grab_single_point(&mut self) -> Result<(f32, f32), ()> {
+        match self.lidar_dev.as_mut().unwrap().grab_scan_point() {
+            Ok(it) => {Ok(polar_to_cartesian_radians(it.distance(), it.angle()))}
+            Err(it) => {
+                if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {
+                    println!("timeout...");
+                    self.timeouts += 1;
+                    if self.timeouts > TIMEOUTS_MAX {
+                        println!("Timeouts exceeded normal value, regenerating...");
+                        self.fatals += 1;
+                        self.timeouts = 0;
+                        match self.regen_connection() {
+                            None => {return Err(())}
+                            Some(_) => {}
+                        };
+                    }
+                    self.grab_single_point()
+                } else {
+                    println!("Error: {:?}", it);
+                    self.fatals += 1;
+                    if self.fatals > FATALS_MAX {
+                        Err(())
+                    } else {
+                        match self.regen_connection() {
+                            None => {return Err(())}
+                            Some(_) => {}
+                        };
+                        self.grab_single_point()
+                    }
+                }
+            }
+        }
+    }
+    pub(crate) fn read_single_point(&mut self) -> Result<(), ()> {
+        let num = self.grab_single_point()?;
+        self.data[self.data_index % self.data.len()] = num;
+        self.data_index += 1;
+        Ok(())
+    }
+    fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
+        match self.lidar_dev.as_mut().unwrap().grab_scan() {
+            Ok(it) => {
+                Ok(it.iter().map(|it| {(it.distance(), it.angle())}).collect())
+            }
+            Err(it) => {
+                if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {
+                    println!("timeout...");
+                    self.timeouts += 1;
+                    if self.timeouts > TIMEOUTS_MAX {
+                        println!("Timeouts exceeded normal value, regenerating...");
+                        self.fatals += 1;
+                        self.timeouts = 0;
+                        match self.regen_connection() {
+                            None => {return Err(())}
+                            Some(_) => {}
+                        };
+                    }
+                    self.grab_points()
+                } else {
+                    println!("Error: {:?}", it);
+                    self.fatals += 1;
+                    if self.fatals > FATALS_MAX {
+                        Err(())
+                    } else {
+                        match self.regen_connection() {
+                            None => {return Err(())}
+                            Some(_) => {}
+                        };
+                        self.grab_points()
+                    }
+                }
+            }
+        }
+    }
+    pub(crate) fn read_points(&mut self) -> Result<(), ()> {
+        let points = self.grab_points()?;
+        eprintln!("read {} points", points.len());
+        for i in points {
+            self.data[self.data_index % self.data.len()] = i;
+            self.data_index += 1;
+        }
+        Ok(())
+    }
+}

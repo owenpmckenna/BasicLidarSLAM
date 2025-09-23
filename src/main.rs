@@ -1,3 +1,5 @@
+mod Lidar;
+
 extern crate serialport;
 
 use std::cmp::max;
@@ -13,6 +15,8 @@ use plotters::element::Circle;
 use plotters::style::{Color, GREEN, WHITE};
 use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
 use serialport::{DataBits, FlowControl, Parity, SerialPortSettings, StopBits};
+use crate::Lidar::LidarUnit;
+
 //use rplidar_drv::{ScanMode, ScanOptions};
 //use serial2::SerialPort;
 fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
@@ -20,68 +24,10 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let y = radius * theta_radians.sin();
     (x, y)
 }
-fn grab_points() -> Result<Vec<(f32, f32)>, Box<dyn std::error::Error>> {
-    use rplidar_drv::RplidarDevice;
-    //let serial_port = SerialPort::open("/dev/ttyUSB0".to_owned(), 115200).unwrap();\
-    let s = SerialPortSettings {
-        baud_rate: 115200,
-        data_bits: DataBits::Eight,
-        flow_control: FlowControl::None,
-        parity: Parity::None,
-        stop_bits: StopBits::One,
-        timeout: Duration::from_millis(100),
-    };
-    let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s)?;
-    serial_port
-        .write_data_terminal_ready(false)
-        .expect("failed to clear DTR");
-    let channel = Channel::<RplidarHostProtocol, dyn serialport::SerialPort>::new(
-        RplidarHostProtocol::new(),
-        serial_port,
-    );
-    let mut rplidar = RplidarDevice::new(channel);
-    let mut x = 0;
-    let mut y = 0;
-    let mut total: f32 = 0.0;
-    let mut data: Vec<(f32, f32)> = Vec::with_capacity(7000);
-    rplidar.set_motor_pwm(500).expect("Motor start failed somehow");
-    rplidar.start_motor().expect("Start motor failed");
-    let scan_type = rplidar.start_scan_with_options(&ScanOptions::force_scan())?;
-    'outer: for i in 0..5 {
-        let scan_data_o = rplidar.grab_scan_with_timeout(Duration::from_secs(15));
-        match scan_data_o {
-            Ok(it) => {
-                for scan_point in it {
-                    //print!("{},", scan_point.distance());
-                    //println!("{}", scan_point.angle());
-                    let p = polar_to_cartesian_radians(scan_point.distance(), scan_point.angle());
-                    data.push(p);
-                    //println!("x: {}", x);
-                    x += 1;
-                }
-            }
-            Err(err) => {
-                if let Some(RposError::OperationTimeout) = err.downcast_ref::<RposError>() {
-                    println!("timeout...");
-                    //continue;
-                } else {
-                    println!("Error: {:?}", err);
-                    println!("Failed at: {}", i);
-                    break 'outer;
-                }
-            }
-        };
-        //println!("total: {}", total/(x as f32));
-        //println!("y: {}", y);
-        y += 1;
-        //x = 0;
-    }
-    rplidar.stop().expect("Stopping failed.");
-    Ok(data)
-}
 fn main() {
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
+    let mut ld = LidarUnit::new();
 
     //rplidar.stop_motor().expect("Motor stop failed somehow");
     //rplidar.stop().expect("Stop failed somehow");
@@ -94,36 +40,19 @@ fn main() {
     //println!("health: {:?}", health);
 
     //sleep(Duration::from_secs(5));
-    const ARRAY_SIZE: usize = 10000;
-    let mut data: Vec<(f32, f32)> = vec![(0.0,0.0); ARRAY_SIZE];
-    let mut data2: Vec<(f32, f32)> = vec![(0.0,0.0); ARRAY_SIZE];
-    let pg = 500; //number of elements to copy
 
     loop {
-        let mut pg = 0;
-        let it = match grab_points() {
-            Ok(it) => {pg = it.len(); it}
-            Err(it) => {println!("Error: {}", it); sleep(Duration::from_secs(5)); continue}
-        };
-        //copy the end of data to beginning of data2
-        data2[..pg].copy_from_slice(&data[ARRAY_SIZE-pg..]);
-        //copy the new data to the end of data2
-        data2[ARRAY_SIZE-pg..].copy_from_slice(&it);
-        //copy data2 back to data
-        let td = data;
-        data = data2;
-        data2 = td;
-        
-        println!("ran, now have {} points, got {} from lidar", data.len(), it.len());
-        present(&root, &data);
+        println!("reading points...");
+        ld.read_points().unwrap();
+        present(&root, ld.get_data());
     }
     
-    println!("number of points: {}", data.len());
+    //println!("number of points: {}", data.len());
     
     //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
-    present(&root, &data);
+    //present(&root, &data);
 }
-fn present(root: &DrawingArea<BitMapBackend, Shift>, data: &Vec<(f32, f32)>) {
+fn present(root: &DrawingArea<BitMapBackend, Shift>, data: &[(f32, f32); Lidar::DATA_LEN]) {
     root.fill(&WHITE).expect("Fill failed");
     let mut mx: f32 = 0.0;
     let mut my: f32 = 0.0;
