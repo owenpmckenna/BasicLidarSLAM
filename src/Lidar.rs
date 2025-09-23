@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::time::Duration;
-use rplidar_drv::{Channel, RplidarDevice, RplidarHostProtocol, RposError};
+use rplidar_drv::{Channel, RplidarDevice, RplidarHostProtocol, RposError, ScanOptions};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, SerialPortSettings, StopBits};
 
 pub(crate) const DATA_LEN: usize = 10000;
@@ -39,7 +39,10 @@ impl LidarUnit {
             RplidarHostProtocol::new(),
             serial_port,
         );
-        Ok(RplidarDevice::new(channel))
+        let mut dev = RplidarDevice::new(channel);
+        dev.start_scan_with_options(&ScanOptions::force_scan())?;
+        dev.grab_scan_point();//Ignore result
+        Ok(dev)
     }
     pub(crate) fn new() -> LidarUnit {
         let rplidar = match Self::get_rplidar() {
@@ -142,7 +145,7 @@ impl LidarUnit {
     }
     pub(crate) fn read_points(&mut self) -> Result<(), ()> {
         let points = self.grab_points()?;
-        eprintln!("read {} points", points.len());
+        println!("read {} points", points.len());
         for i in points {
             self.data[self.data_index % self.data.len()] = i;
             self.data_index += 1;
