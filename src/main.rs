@@ -53,24 +53,30 @@ fn main() {
         .timeout(Duration::from_millis(100))
         .open().unwrap();
     let mut rc_2 = Roboclaw::new(serial_port_2);
+    let mut loopnum = 0;
     loop {
         sleep(Duration::from_secs(7));
-        println!("running...");
+        println!("running... (loop {})", loopnum);
+        loopnum += 1;
 
+        println!("1.1");
         rc.forward_m1(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc.forward_m1(0).expect("TODO: panic message0");
         sleep(Duration::from_secs(3));
 
+        println!("1.2");
         rc.forward_m2(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc.forward_m2(0).expect("TODO: panic message0");
         sleep(Duration::from_secs(3));
 
+        println!("2.1");
         rc_2.forward_m1(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc_2.forward_m1(0).expect("TODO: panic message0");
 
+        println!("2.2");
         rc_2.forward_m2(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc_2.forward_m2(0).expect("TODO: panic message0");
