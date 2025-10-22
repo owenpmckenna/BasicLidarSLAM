@@ -6,5 +6,7 @@ edition = "2024"
 [dependencies]
 serial2 = "0.2.29"
 rplidar_drv_rs = "0.7.0"
-serialport = "3.1.0"
+serialport = "4.1.0"
 plotters = "0.3.7"
+rppal = "0.22.1"
+roboclaw = { git = "https://github.com/ysimonson/roboclaw-rs.git", branch = "serialport"}

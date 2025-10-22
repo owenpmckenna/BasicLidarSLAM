@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::time::Duration;
 use rplidar_drv::{Channel, RplidarDevice, RplidarHostProtocol, RposError, ScanOptions};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, SerialPortSettings, StopBits};
+use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 pub(crate) const DATA_LEN: usize = 10000;
 const TIMEOUTS_MAX: usize = 10;
@@ -23,15 +23,14 @@ impl LidarUnit {
         &self.data
     }
     fn get_rplidar() -> Result<RplidarDevice<dyn SerialPort>, Box<dyn Error>> {
-        let s = SerialPortSettings {
-            baud_rate: 115200,
-            data_bits: DataBits::Eight,
-            flow_control: FlowControl::None,
-            parity: Parity::None,
-            stop_bits: StopBits::One,
-            timeout: Duration::from_millis(100),
-        };
-        let mut serial_port = serialport::open_with_settings("/dev/ttyUSB0", &s)?;
+        let mut serial_port = serialport::new("/dev/ttyUSB0", 115200)
+            .stop_bits(StopBits::One)
+            .data_bits(DataBits::Eight)
+            .flow_control(FlowControl::None)
+            .parity(Parity::None)
+            .timeout(Duration::from_millis(100))
+            .open().unwrap();
+        //let mut serial_port = serialport::new("/dev/ttyUSB0", &s)?;
         serial_port
             .write_data_terminal_ready(false)
             .expect("failed to clear DTR");
@@ -74,27 +73,22 @@ impl LidarUnit {
             Ok(it) => {Ok(polar_to_cartesian_radians(it.distance(), it.angle()))}
             Err(it) => {
                 if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {
-                    println!("timeout...");
                     self.timeouts += 1;
                     if self.timeouts > TIMEOUTS_MAX {
-                        println!("Timeouts exceeded normal value, regenerating...");
                         self.fatals += 1;
                         self.timeouts = 0;
                         match self.regen_connection() {
-                            None => {return Err(())}
-                            Some(_) => {}
+                            None => {return Err(())} Some(_) => {}
                         };
                     }
                     self.grab_single_point()
                 } else {
-                    println!("Error: {:?}", it);
                     self.fatals += 1;
                     if self.fatals > FATALS_MAX {
                         Err(())
                     } else {
                         match self.regen_connection() {
-                            None => {return Err(())}
-                            Some(_) => {}
+                            None => {return Err(())} Some(_) => {}
                         };
                         self.grab_single_point()
                     }
