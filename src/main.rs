@@ -45,10 +45,37 @@ fn main() {
         .timeout(Duration::from_millis(100))
         .open().unwrap();
     let mut rc = Roboclaw::new(serial_port);
-    rc.forward_m1(16).expect("TODO: panic message");
-    sleep(Duration::from_secs(5));
-    rc.forward_m1(0).expect("TODO: panic message0");
-    sleep(Duration::from_secs(5));
+    let serial_port_2 = serialport::new("/dev/ttyACM1", 115200)
+        .stop_bits(StopBits::One)
+        .data_bits(DataBits::Eight)
+        .flow_control(FlowControl::None)
+        .parity(Parity::None)
+        .timeout(Duration::from_millis(100))
+        .open().unwrap();
+    let mut rc_2 = Roboclaw::new(serial_port_2);
+    loop {
+        sleep(Duration::from_secs(7));
+        println!("running...");
+
+        rc.forward_m1(32).expect("TODO: panic message");
+        sleep(Duration::from_secs(3));
+        rc.forward_m1(0).expect("TODO: panic message0");
+        sleep(Duration::from_secs(3));
+
+        rc.forward_m2(32).expect("TODO: panic message");
+        sleep(Duration::from_secs(3));
+        rc.forward_m2(0).expect("TODO: panic message0");
+        sleep(Duration::from_secs(3));
+
+        rc_2.forward_m1(32).expect("TODO: panic message");
+        sleep(Duration::from_secs(3));
+        rc_2.forward_m1(0).expect("TODO: panic message0");
+
+        rc_2.forward_m2(32).expect("TODO: panic message");
+        sleep(Duration::from_secs(3));
+        rc_2.forward_m2(0).expect("TODO: panic message0");
+        sleep(Duration::from_secs(3));
+    }
     exit(0);
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
