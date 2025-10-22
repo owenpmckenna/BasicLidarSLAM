@@ -55,7 +55,6 @@ fn main() {
     let mut rc_2 = Roboclaw::new(serial_port_2);
     let mut loopnum = 0;
     loop {
-        sleep(Duration::from_secs(7));
         println!("running... (loop {})", loopnum);
         loopnum += 1;
 
@@ -63,13 +62,11 @@ fn main() {
         rc.forward_m1(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc.forward_m1(0).expect("TODO: panic message0");
-        sleep(Duration::from_secs(3));
 
         println!("1.2");
         rc.forward_m2(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc.forward_m2(0).expect("TODO: panic message0");
-        sleep(Duration::from_secs(3));
 
         println!("2.1");
         rc_2.forward_m1(32).expect("TODO: panic message");
@@ -80,7 +77,8 @@ fn main() {
         rc_2.forward_m2(32).expect("TODO: panic message");
         sleep(Duration::from_secs(3));
         rc_2.forward_m2(0).expect("TODO: panic message0");
-        sleep(Duration::from_secs(3));
+        
+        sleep(Duration::from_secs(5));
     }
     exit(0);
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
