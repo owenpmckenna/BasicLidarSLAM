@@ -23,7 +23,7 @@ use rppal::gpio::Gpio;
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+use termion::raw::{IntoRawMode, RawTerminal};
 use crate::Lidar::LidarUnit;
 
 //use rplidar_drv::{ScanMode, ScanOptions};
@@ -72,7 +72,7 @@ fn main() {
             Key::Char('a') => { dt.y -= 0.1; },
             Key::Char('s') => { dt.x -= 0.1; },
             Key::Char('d') => { dt.y += 0.1; },
-            Key::Left => { dt.turn += 0.1; },
+            Key::Left => { dt.turn -= 0.1; },
             Key::Right => { dt.turn += 0.1; },
             Key::Backspace => { dt.x = 0.0; dt.y = 0.0; dt.turn = 0.0; },
             x => {
@@ -82,7 +82,8 @@ fn main() {
         dt.power().expect("something failed idk");
         stdout.flush().unwrap();
     }
-
+    dt.x = 0.0; dt.y = 0.0; dt.turn = 0.0;
+    dt.power().expect("failed");
     write!(stdout, "{}", termion::cursor::Show).unwrap();
     stdout.suspend_raw_mode().expect("could not suspend raw mode");
     exit(0);
