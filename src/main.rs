@@ -34,6 +34,7 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     (x, y)
 }
 fn main() {
+    let mut dt = Drivetrain::Drivetrain::new();
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
 
@@ -53,7 +54,6 @@ fn main() {
     };*/
     
     let mut loopnum = 0;
-    let mut dt = Drivetrain::Drivetrain::new();
     for k in stdin.keys() {
         println!("running... (loop {})", loopnum);
         loopnum += 1;
@@ -84,6 +84,7 @@ fn main() {
     }
 
     write!(stdout, "{}", termion::cursor::Show).unwrap();
+    stdout.suspend_raw_mode().expect("could not suspend raw mode");
     exit(0);
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
