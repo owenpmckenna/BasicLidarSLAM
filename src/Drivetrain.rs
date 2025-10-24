@@ -42,13 +42,13 @@ impl Drivetrain {
         self.set_bl((speed * 255.0) as i16)
     }
     fn br_power(&mut self, speed: f32) -> std::io::Result<()> {
-        self.set_br((speed * 255.0) as i16)
+        self.set_br(-(speed * 255.0) as i16)//right ones backwards
     }
     fn fl_power(&mut self, speed: f32) -> std::io::Result<()> {
         self.set_fl((speed * 255.0) as i16)
     }
     fn fr_power(&mut self, speed: f32) -> std::io::Result<()> {
-        self.set_fr((speed * 255.0) as i16)
+        self.set_fr(-(speed * 255.0) as i16)
     }
     fn set_bl(&mut self, speed: i16) -> std::io::Result<()> {//ok actually a u8 but whatever. [-255, 255]
         if speed > 0 {
