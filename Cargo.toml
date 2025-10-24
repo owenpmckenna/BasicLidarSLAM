@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 serial2 = "0.2.29"
+termion = "4.0.5"
 rplidar_drv_rs = "0.7.0"
 serialport = "4.1.0"
 plotters = "0.3.7"

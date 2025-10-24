@@ -1,9 +1,11 @@
 mod Lidar;
+mod Drivetrain;
 
 extern crate serialport;
 
 use std::cmp::max;
 use std::error::Error;
+use std::io::{stdin, stdout, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::exit;
 use std::thread;
@@ -19,6 +21,9 @@ use roboclaw::Roboclaw;
 use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
 use rppal::gpio::Gpio;
 use serialport::{DataBits, FlowControl, Parity, StopBits};
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::IntoRawMode;
 use crate::Lidar::LidarUnit;
 
 //use rplidar_drv::{ScanMode, ScanOptions};
@@ -29,6 +34,15 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     (x, y)
 }
 fn main() {
+    let stdin = stdin();
+    let mut stdout = stdout().into_raw_mode().unwrap();
+
+    write!(
+        stdout,
+        "q to exit."
+    )
+        .unwrap();
+    stdout.flush().unwrap();
     /*let s = Settings {
         baud_rate: 115200,
         data_bits: DataBits::Eight,
@@ -37,49 +51,39 @@ fn main() {
         stop_bits: StopBits::One,
         timeout: Duration::from_millis(100),
     };*/
-    let serial_port = serialport::new("/dev/ttyACM0", 115200)
-        .stop_bits(StopBits::One)
-        .data_bits(DataBits::Eight)
-        .flow_control(FlowControl::None)
-        .parity(Parity::None)
-        .timeout(Duration::from_millis(100))
-        .open().unwrap();
-    let mut rc = Roboclaw::new(serial_port);
-    let serial_port_2 = serialport::new("/dev/ttyACM1", 115200)
-        .stop_bits(StopBits::One)
-        .data_bits(DataBits::Eight)
-        .flow_control(FlowControl::None)
-        .parity(Parity::None)
-        .timeout(Duration::from_millis(100))
-        .open().unwrap();
-    let mut rc_2 = Roboclaw::new(serial_port_2);
+    
     let mut loopnum = 0;
-    loop {
+    let mut dt = Drivetrain::Drivetrain::new();
+    for k in stdin.keys() {
         println!("running... (loop {})", loopnum);
         loopnum += 1;
+        write!(
+            stdout,
+            "{}",
+            termion::clear::CurrentLine
+        ).unwrap();
 
-        println!("1.1");
-        rc.forward_m1(32).expect("TODO: panic message");
-        sleep(Duration::from_secs(3));
-        rc.forward_m1(0).expect("TODO: panic message0");
-
-        println!("1.2");
-        rc.forward_m2(32).expect("TODO: panic message");
-        sleep(Duration::from_secs(3));
-        rc.forward_m2(0).expect("TODO: panic message0");
-
-        println!("2.1");
-        rc_2.forward_m1(32).expect("TODO: panic message");
-        sleep(Duration::from_secs(3));
-        rc_2.forward_m1(0).expect("TODO: panic message0");
-
-        println!("2.2");
-        rc_2.forward_m2(32).expect("TODO: panic message");
-        sleep(Duration::from_secs(3));
-        rc_2.forward_m2(0).expect("TODO: panic message0");
-        
-        sleep(Duration::from_secs(5));
+        match k.unwrap() {
+            Key::Char('q') => break,
+            Key::Alt(c) => println!("^{}", c),
+            Key::Ctrl(c) => println!("*{}", c),
+            Key::Esc => break,
+            Key::Char('w') => { dt.x += 0.1; },
+            Key::Char('a') => { dt.y -= 0.1; },
+            Key::Char('s') => { dt.x -= 0.1; },
+            Key::Char('d') => { dt.y += 0.1; },
+            Key::Left => { dt.turn += 0.1; },
+            Key::Right => { dt.turn += 0.1; },
+            Key::Backspace => { dt.x = 0.0; dt.y = 0.0; dt.turn = 0.0; },
+            x => {
+                println!("{:?}", x)
+            }
+        }
+        dt.power().expect("something failed idk");
+        stdout.flush().unwrap();
     }
+
+    write!(stdout, "{}", termion::cursor::Show).unwrap();
     exit(0);
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
