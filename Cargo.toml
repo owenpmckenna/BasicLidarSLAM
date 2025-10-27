@@ -11,3 +11,10 @@ serialport = "4.1.0"
 plotters = "0.3.7"
 rppal = "0.22.1"
 roboclaw = { git = "https://github.com/ysimonson/roboclaw-rs.git", branch = "serialport"}
+env_logger = "0.10"
+axum = { version = "0.8.4", features = ['ws'] }
+axum-extra = {version = "0.10.1", features = ["typed-header"]}
+tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
+crossbeam-channel = "0.5.15"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"

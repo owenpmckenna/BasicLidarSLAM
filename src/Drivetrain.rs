@@ -33,8 +33,8 @@ impl Drivetrain {
 
     pub fn power(&mut self) -> std::io::Result<()> {
         self.fl_power((self.y + self.x - self.turn) * self.s)?;
-        self.bl_power((self.y - self.x - self.turn) * self.s)?;
-        self.fr_power((self.y - self.x + self.turn) * self.s)?;
+        self.bl_power((self.y - self.x + self.turn) * self.s)?;
+        self.fr_power((self.y - self.x - self.turn) * self.s)?;
         self.br_power((self.y + self.x + self.turn) * self.s)
     }
 

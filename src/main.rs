@@ -1,5 +1,6 @@
 mod Lidar;
 mod Drivetrain;
+mod Webserver;
 
 extern crate serialport;
 
@@ -11,6 +12,7 @@ use std::process::exit;
 use std::thread;
 use std::thread::{sleep, Thread};
 use std::time::Duration;
+use crossbeam_channel::unbounded;
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
 use plotters::coord::Shift;
@@ -25,6 +27,7 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::Lidar::LidarUnit;
+use crate::Webserver::{SendData, SmallData};
 
 //use rplidar_drv::{ScanMode, ScanOptions};
 //use serial2::SerialPort;
@@ -34,6 +37,13 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     (x, y)
 }
 fn main() {
+    env_logger::init();
+    let mut ld = LidarUnit::new();
+    let (tx, rx) = unbounded::<SendData>();
+    tokio::spawn(async {
+        let webserver = Webserver::Webserver::new(rx).await;
+        webserver.serve().await;
+    });
     let mut dt = Drivetrain::Drivetrain::new();
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
@@ -55,6 +65,10 @@ fn main() {
     
     let mut loopnum = 0;
     for k in stdin.keys() {
+        let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
+            .map(|it| {SmallData {x: (it.0/12.0 * 200.0) as i32, y: (it.1/12.0 * 200.0) as i32}}).collect();
+        let to_send = SendData {data: points};
+        tx.send(to_send).unwrap();
         println!("running... (loop {})", loopnum);
         loopnum += 1;
         write!(

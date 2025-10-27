@@ -102,7 +102,7 @@ impl LidarUnit {
         self.data_index += 1;
         Ok(())
     }
-    fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
+    pub fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
         match self.lidar_dev.as_mut().unwrap().grab_scan_with_timeout(Duration::from_secs(15)) {
             Ok(it) => {
                 Ok(it.iter().map(|it| {(it.distance(), it.angle())}).collect())
