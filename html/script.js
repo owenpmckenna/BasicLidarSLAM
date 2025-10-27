@@ -1,6 +1,6 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
-const socket = new WebSocket("ws://127.0.0.1:8081");
+const socket = new WebSocket("ws://127.0.0.1:8081/data");
 list = [];
 let xOffset = -300;
 let yOffset = -200;
