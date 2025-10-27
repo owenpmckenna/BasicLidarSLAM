@@ -51,6 +51,7 @@ impl Webserver {
     async fn handle_socket(state: AppState, mut ws: WebSocket) {
         println!("received connection!");
         for x in state.rx.iter() {
+            println!("writing data! ({} points)", x.data.len());
             let data = serde_json::to_string(&x).unwrap();
             match ws.send(Message::Text(Utf8Bytes::from(data))).await {
                 Ok(_) => {}
