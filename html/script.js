@@ -14,7 +14,7 @@ document.addEventListener("keydown", (event) => {
 	} else if (event.key === "ArrowRight") {
 		xOffset += 5;
 	}
-}
+});
 function redraw() {
 	ctx.fillStyle = "white";
 	ctx.fillRect(0,0,600,400);
@@ -30,5 +30,5 @@ socket.addEventListener("message", (event) => {
 		list.push(x);
 	}
 	redraw();
-}
+});
 
