@@ -7,6 +7,7 @@ use axum::routing::{any, get, post};
 use tokio::net::TcpListener;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 struct AppState {
@@ -29,10 +30,12 @@ impl Webserver {
     pub async fn new(r: Receiver<SendData>) -> Webserver {
         let state = AppState {rx: Arc::new(r)};
         // build our application with a route
+        let cors = CorsLayer::new().allow_origin(Any);
         let app = Router::new()
             .route("/", any(Webserver::root))
             .route("/data", any(Webserver::data))
-            .with_state(state);
+            .with_state(state)
+            .layer(cors);
         let listener = TcpListener::bind("0.0.0.0:8081").await.unwrap();
         Webserver {router: app, tcp_listener: listener}
     }

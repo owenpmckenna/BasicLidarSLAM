@@ -26,6 +26,7 @@ use serialport::{DataBits, FlowControl, Parity, StopBits};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
+use tokio::runtime::Runtime;
 use crate::Lidar::LidarUnit;
 use crate::Webserver::{SendData, SmallData};
 
@@ -40,7 +41,8 @@ fn main() {
     env_logger::init();
     let mut ld = LidarUnit::new();
     let (tx, rx) = unbounded::<SendData>();
-    tokio::spawn(async {
+    let rt = Runtime::new().unwrap();
+    rt.spawn(async {
         let webserver = Webserver::Webserver::new(rx).await;
         webserver.serve().await;
     });
