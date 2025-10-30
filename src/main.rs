@@ -53,7 +53,7 @@ fn main() {
             println!("got {} points!", points.len());
             let to_send = SendData {data: points};
             tx.send(to_send).unwrap();
-            sleep(Duration::from_millis(1500));
+            sleep(Duration::from_millis(250));
         }
     });
     let mut dt = Drivetrain::Drivetrain::new();
