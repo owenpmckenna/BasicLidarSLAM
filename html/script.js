@@ -26,10 +26,10 @@ function redraw() {
 socket.addEventListener("message", (event) => {
 	const data = JSON.parse(event.data);
 	console.log(data);
-	for (msg in data.data) {
+	data.data.forEach(msg => {
 	    console.log(msg);
-		list.push({x: msg.x, y: msg.y});
-	}
+	    list.push({x: msg.x, y: msg.y});
+	});
 	redraw();
 });
 
