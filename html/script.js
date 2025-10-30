@@ -26,8 +26,9 @@ function redraw() {
 socket.addEventListener("message", (event) => {
 	const data = JSON.parse(event.data);
 	console.log(data);
-	for (x in data.data) {
-		list.push(x);
+	for (msg in data.data) {
+	    console.log(msg);
+		list.push({x: msg.x, y: msg.y});
 	}
 	redraw();
 });
