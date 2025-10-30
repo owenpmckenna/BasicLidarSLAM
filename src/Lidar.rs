@@ -5,7 +5,7 @@ use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 pub(crate) const DATA_LEN: usize = 10000;
 const TIMEOUTS_MAX: usize = 10;
-const FATALS_MAX: usize = 10;
+const FATALS_MAX: usize = 100;
 fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let x = radius * theta_radians.cos();
     let y = radius * theta_radians.sin();

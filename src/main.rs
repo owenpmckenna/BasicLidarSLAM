@@ -46,6 +46,16 @@ fn main() {
         let webserver = Webserver::Webserver::new(rx).await;
         webserver.serve().await;
     });
+    thread::spawn(move || {
+        loop {
+            let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
+                .map(|it| { SmallData { x: (it.0 / 12.0 * 200.0) as i32, y: (it.1 / 12.0 * 200.0) as i32 } }).collect();
+            println!("got {} points!", points.len());
+            let to_send = SendData {data: points};
+            tx.send(to_send).unwrap();
+            sleep(Duration::from_millis(1500));
+        }
+    });
     let mut dt = Drivetrain::Drivetrain::new();
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
@@ -67,11 +77,6 @@ fn main() {
     
     let mut loopnum = 0;
     for k in stdin.keys() {
-        let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
-            .map(|it| {SmallData {x: (it.0/12.0 * 200.0) as i32, y: (it.1/12.0 * 200.0) as i32}}).collect();
-        println!("got {} points!", points.len());
-        let to_send = SendData {data: points};
-        tx.send(to_send).unwrap();
         println!("running... (loop {})", loopnum);
         loopnum += 1;
         write!(
