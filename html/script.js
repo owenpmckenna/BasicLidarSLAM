@@ -27,6 +27,8 @@ function redraw() {
 	for (m in list) {
 		ctx.fillRect(list[m].x-xOffset, list[m].y-yOffset, 1, 1);
 	}
+	ctx.fillStyle = "red";
+	ctx.fillRect(-2 - xOffset, -2 - yOffset, 4, 4);
 }
 socket.addEventListener("message", (event) => {
 	const data = JSON.parse(event.data);

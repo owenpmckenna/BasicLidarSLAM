@@ -34,7 +34,7 @@ impl LidarUnit {
         serial_port
             .write_data_terminal_ready(false)
             .expect("failed to clear DTR");
-        let channel = Channel::<RplidarHostProtocol, dyn serialport::SerialPort>::new(
+        let channel = Channel::<RplidarHostProtocol, dyn SerialPort>::new(
             RplidarHostProtocol::new(),
             serial_port,
         );
@@ -105,7 +105,7 @@ impl LidarUnit {
     pub fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
         match self.lidar_dev.as_mut().unwrap().grab_scan_with_timeout(Duration::from_secs(15)) {
             Ok(it) => {
-                Ok(it.iter().map(|it| {(it.distance(), it.angle())}).collect())
+                Ok(it.iter().filter(|it| {it.is_valid()}).map(|it| {(it.distance(), it.angle())}).collect())
             }
             Err(it) => {
                 if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {
