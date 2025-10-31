@@ -46,7 +46,7 @@ fn main() {
         let webserver = Webserver::Webserver::new(rx).await;
         webserver.serve().await;
     });
-    thread::spawn(move || {
+    let t = thread::spawn(move || {
         loop {
             let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
                 .map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
@@ -56,7 +56,8 @@ fn main() {
             sleep(Duration::from_millis(50));
         }
     });
-    let mut dt = Drivetrain::Drivetrain::new();
+    t.join().expect("");
+    /*let mut dt = Drivetrain::Drivetrain::new();
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
 
@@ -108,7 +109,7 @@ fn main() {
     dt.power().expect("failed");
     write!(stdout, "{}", termion::cursor::Show).unwrap();
     stdout.suspend_raw_mode().expect("could not suspend raw mode");
-    exit(0);
+    exit(0);*/
     let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
     let mut ld = LidarUnit::new();
