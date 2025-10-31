@@ -2,7 +2,7 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
 const socket = new WebSocket("ws://10.64.52.242:8081/data");
 list = [];
-let max_points = 15000;
+let max_points = 7000;
 let number = 0;
 for (let i = 0; i < max_points; i += 1) {
     list.push({x: 0, y: 0});

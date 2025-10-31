@@ -49,7 +49,7 @@ fn main() {
     thread::spawn(move || {
         loop {
             let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
-                .map(|it| { SmallData { x: (it.0 / 12.0 * 200.0) as i32, y: (it.1 / 12.0 * 200.0) as i32 } }).collect();
+                .map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
             println!("got {} points!", points.len());
             let to_send = SendData {data: points};
             tx.send(to_send).unwrap();
