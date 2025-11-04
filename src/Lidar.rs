@@ -105,7 +105,7 @@ impl LidarUnit {
     pub fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
         match self.lidar_dev.as_mut().unwrap().grab_scan_with_timeout(Duration::from_secs(15)) {
             Ok(it) => {
-                Ok(it.iter().filter(|it| {println!("ang:{}, dist:{}", it.angle(), it.distance()); it.is_valid()}).map(|it| {(it.distance(), it.angle())}).collect())
+                Ok(it.iter().filter(|it| {/*println!("ang:{}, dist:{}", it.angle(), it.distance());*/ it.is_valid()}).map(|it| {(it.distance(), it.angle())}).collect())
             }
             Err(it) => {
                 if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {

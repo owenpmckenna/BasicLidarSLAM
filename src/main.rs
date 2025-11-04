@@ -49,6 +49,8 @@ fn main() {
     let t = thread::spawn(move || {
         loop {
             let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
+                // / 6.0 * 400.0 
+                .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
                 .map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
             println!("got {} points!", points.len());
             let to_send = SendData {data: points};
