@@ -24,6 +24,7 @@ document.addEventListener("keydown", (event) => {
 let x = 0.0;
 let y = 0.0;
 let turn = 0.0;
+let speed = 0.2;
 document.addEventListener("keyup", (event) => {
 	if (event.key == "w") {
 	    x = 0.0;
@@ -47,13 +48,13 @@ document.addEventListener("keyup", (event) => {
 document.addEventListener("keydown", (event) => {
     if (event.repeat) return;
 	if (event.key == "w") {
-	    x = 0.5;
+	    x = speed;
 	} else if (event.key === "a") {
-		turn = -0.5;
+		turn = -speed;
 	} else if (event.key === "s") {
-		x = -0.5;
+		x = -speed;
 	} else if (event.key === "d") {
-		turn = 0.5;
+		turn = speed;
 	}
 	console.log("sending down...");
 	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
