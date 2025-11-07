@@ -52,7 +52,7 @@ fn main() {
                 // / 6.0 * 400.0 
                 .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
                 .map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
-            println!("got {} points!", points.len());
+            //println!("got {} points!", points.len());
             let to_send = SendData {data: points};
             tx.send(to_send).unwrap();
             sleep(Duration::from_millis(50));
@@ -112,9 +112,9 @@ fn main() {
     write!(stdout, "{}", termion::cursor::Show).unwrap();
     stdout.suspend_raw_mode().expect("could not suspend raw mode");
     exit(0);*/
-    let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
+    //let root = BitMapBackend::new("../data.png", (1024, 768)).into_drawing_area();
     //println!("Hello, world!");
-    let mut ld = LidarUnit::new();
+    //let mut ld = LidarUnit::new();
 
     //rplidar.stop_motor().expect("Motor stop failed somehow");
     //rplidar.stop().expect("Stop failed somehow");
@@ -128,11 +128,11 @@ fn main() {
 
     //sleep(Duration::from_secs(5));
 
-    loop {
+    /*loop {
         println!("reading points...");
         ld.read_points().unwrap();
         present(&root, ld.get_data());
-    }
+    }*/
 
     //println!("number of points: {}", data.len());
 
