@@ -1,6 +1,6 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
-const socket = new WebSocket("ws://10.64.52.187:8081/data");
+const socket = new WebSocket("ws://10.64.51.12:8081/data");
 list = [];
 let max_points = 7000;
 let number = 0;
