@@ -139,7 +139,7 @@ impl LidarUnit {
     }
     pub(crate) fn read_points(&mut self) -> Result<(), ()> {
         let points = self.grab_points()?;
-        println!("read {} points", points.len());
+        //println!("read {} points", points.len());
         for i in points {
             self.data[self.data_index % self.data.len()] = i;
             self.data_index += 1;

@@ -33,10 +33,11 @@ document.addEventListener("keyup", (event) => {
 	} else if (event.key === "d") {
 		turn = 0.0;
 	}
-	console.log("sending...");
+	console.log("sending up...");
 	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 });
 document.addEventListener("keydown", (event) => {
+    if (event.repeat) return;
 	if (event.key == "w") {
 	    x = 0.5;
 	} else if (event.key === "a") {
@@ -46,7 +47,7 @@ document.addEventListener("keydown", (event) => {
 	} else if (event.key === "d") {
 		turn = 0.5;
 	}
-	console.log("sending...");
+	console.log("sending down...");
 	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 });
 function redraw() {

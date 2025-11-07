@@ -77,7 +77,8 @@ impl Webserver {
                                     dt.x = it.x as f32;
                                     dt.y = it.y as f32;
                                     dt.turn = it.turn as f32;
-                                    dt.power().unwrap()
+                                    dt.power().unwrap();
+                                    println!("got message");
                                 }
                                 Err(it) => {println!("error: {}", it); return;}
                             }
@@ -90,7 +91,7 @@ impl Webserver {
     }
     async fn send(state: AppState, mut sender: SplitSink<WebSocket, Message>) {
         for x in state.rx.iter() {
-            println!("writing data! ({} points)", x.data.len());
+            //println!("writing data! ({} points)", x.data.len());
             let data = serde_json::to_string(&x).unwrap().into();
             match sender.send(Message::Text(data)).await {
                 Ok(_) => {}
