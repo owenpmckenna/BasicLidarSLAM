@@ -11,14 +11,43 @@ let xOffset = -300;
 let yOffset = -200;
 document.addEventListener("keydown", (event) => {
 	if (event.key == "ArrowUp") {
-		yOffset += 5;
-	} else if (event.key === "ArrowDown") {
 		yOffset -= 5;
+	} else if (event.key === "ArrowDown") {
+		yOffset += 5;
 	} else if (event.key === "ArrowLeft") {
-		xOffset -= 5;
-	} else if (event.key === "ArrowRight") {
 		xOffset += 5;
+	} else if (event.key === "ArrowRight") {
+		xOffset -= 5;
 	}
+});
+let x = 0.0;
+let y = 0.0;
+let turn = 0.0;
+document.addEventListener("keyup", (event) => {
+	if (event.key == "w") {
+	    x = 0.0;
+	} else if (event.key === "a") {
+		turn = 0.0;
+	} else if (event.key === "s") {
+		x = 0.0;
+	} else if (event.key === "d") {
+		turn = 0.0;
+	}
+	console.log("sending...");
+	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
+});
+document.addEventListener("keydown", (event) => {
+	if (event.key == "w") {
+	    x = 0.5;
+	} else if (event.key === "a") {
+		turn = -0.5;
+	} else if (event.key === "s") {
+		x = -0.5;
+	} else if (event.key === "d") {
+		turn = 0.5;
+	}
+	console.log("sending...");
+	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 });
 function redraw() {
 	ctx.fillStyle = "white";

@@ -19,3 +19,4 @@ tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
 crossbeam-channel = "0.5.15"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+futures-util = { version = "0.3.31", features = ["default", "futures-sink"] }
