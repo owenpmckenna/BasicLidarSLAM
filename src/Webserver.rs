@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 use axum::extract::{State, WebSocketUpgrade};
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
 use axum::response::IntoResponse;
-use axum::{Error, Router};
+use axum::{Error, Form, Router};
+use axum::body::Bytes;
+use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{any, get, post};
 use tokio::net::TcpListener;
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -44,6 +46,7 @@ impl Webserver {
         let app = Router::new()
             .route("/", any(Webserver::root))
             .route("/data", any(Webserver::data))
+            .route("/motorcontrol", post(Webserver::motorcontrol))
             .with_state(state)
             .layer(cors);
         let listener = TcpListener::bind("0.0.0.0:8081").await.unwrap();
@@ -51,6 +54,17 @@ impl Webserver {
     }
     pub async fn serve(self) {
         axum::serve(self.tcp_listener, self.router.into_make_service()).await.expect("Axum failed");
+    }
+    async fn motorcontrol(State(state): State<AppState>, Form(rd): Form<RecData>) -> Result<(HeaderMap, Bytes), (StatusCode, String)> {
+        println!("got message");
+        {
+            let mut dt = state.dt.lock().unwrap();
+            dt.x = rd.x as f32;
+            dt.y = rd.y as f32;
+            dt.turn = rd.turn as f32;
+            dt.power().unwrap();
+        }
+        Ok((HeaderMap::new(), Bytes::from("{}")))
     }
     async fn root() -> &'static str {
         "hello, world"

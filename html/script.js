@@ -34,7 +34,11 @@ document.addEventListener("keyup", (event) => {
 		turn = 0.0;
 	}
 	console.log("sending up...");
-	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
+	fetch("/motorcontrol", {
+        method: 'POST',
+        body: JSON.stringify(x: x, y: y, turn: turn)
+	}).then((response) => response.json());
+	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 });
 document.addEventListener("keydown", (event) => {
     if (event.repeat) return;
@@ -48,7 +52,11 @@ document.addEventListener("keydown", (event) => {
 		turn = 0.5;
 	}
 	console.log("sending down...");
-	socket.send(JSON.stringify({x: x, y: y, turn: turn}));
+	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
+	fetch("/motorcontrol", {
+        method: 'POST',
+        body: JSON.stringify(x: x, y: y, turn: turn)
+	}).then((response) => response.json());
 });
 function redraw() {
 	ctx.fillStyle = "white";
