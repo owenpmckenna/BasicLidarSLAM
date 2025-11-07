@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use axum::extract::{State, WebSocketUpgrade};
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
 use axum::response::IntoResponse;
-use axum::{Error, Form, Router};
+use axum::{Error, Form, Json, Router};
 use axum::body::Bytes;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{any, get, post};
@@ -55,7 +55,7 @@ impl Webserver {
     pub async fn serve(self) {
         axum::serve(self.tcp_listener, self.router.into_make_service()).await.expect("Axum failed");
     }
-    async fn motorcontrol(State(state): State<AppState>, Form(rd): Form<RecData>) -> Result<(HeaderMap, Bytes), (StatusCode, String)> {
+    async fn motorcontrol(State(state): State<AppState>, Json(rd): Json<RecData>) -> Result<(HeaderMap, Bytes), (StatusCode, String)> {
         println!("got message");
         {
             let mut dt = state.dt.lock().unwrap();
