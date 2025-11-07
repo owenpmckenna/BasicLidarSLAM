@@ -36,7 +36,7 @@ document.addEventListener("keyup", (event) => {
 	console.log("sending up...");
 	fetch("/motorcontrol", {
         method: 'POST',
-        body: JSON.stringify(x: x, y: y, turn: turn)
+        body: JSON.stringify({x: x, y: y, turn: turn})
 	}).then((response) => response.json());
 	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 });
@@ -55,7 +55,7 @@ document.addEventListener("keydown", (event) => {
 	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
 	fetch("/motorcontrol", {
         method: 'POST',
-        body: JSON.stringify(x: x, y: y, turn: turn)
+        body: JSON.stringify({x: x, y: y, turn: turn})
 	}).then((response) => response.json());
 });
 function redraw() {
