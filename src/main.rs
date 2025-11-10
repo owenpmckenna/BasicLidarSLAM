@@ -1,6 +1,7 @@
 mod Lidar;
 mod Drivetrain;
 mod Webserver;
+mod LidarLocalizer;
 
 extern crate serialport;
 

@@ -1,6 +1,6 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
-const serveraddr = "10.64.51.12:8081";
+const serveraddr = "10.64.52.240:8081";
 const socket = new WebSocket("ws://" + serveraddr + "/data");
 list = [];
 let max_points = 7000;
@@ -50,11 +50,11 @@ document.addEventListener("keydown", (event) => {
 	if (event.key == "w") {
 	    x = speed;
 	} else if (event.key === "a") {
-		turn = -speed;
+		turn = speed;
 	} else if (event.key === "s") {
 		x = -speed;
 	} else if (event.key === "d") {
-		turn = speed;
+		turn = -speed;
 	}
 	console.log("sending down...");
 	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
