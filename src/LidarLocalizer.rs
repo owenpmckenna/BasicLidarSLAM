@@ -63,6 +63,8 @@ impl InstantLine {
             avg_x += point.0;
             avg_y += point.1;
         }
+        avg_x = avg_x / (self.points.len() as f32);
+        avg_y = avg_y / (self.points.len() as f32);
         let mid = (avg_x, avg_y);
         let slope = slope(self.points[0], *self.points.last().unwrap());
         let length = dist(self.points[0], *self.points.last().unwrap());
