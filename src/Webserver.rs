@@ -13,6 +13,7 @@ use futures_util::stream::{SplitSink, SplitStream};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};
 use crate::Drivetrain::Drivetrain;
+use crate::LidarLocalizer::Line;
 
 #[derive(Clone)]
 struct AppState {
@@ -21,7 +22,8 @@ struct AppState {
 }
 #[derive(Serialize, Deserialize)]
 pub struct SendData {
-    pub data: Vec<SmallData>
+    pub data: Vec<SmallData>,
+    pub lines: Vec<Line>
 }
 #[derive(Serialize, Deserialize)]
 pub struct RecData {

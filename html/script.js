@@ -66,12 +66,19 @@ document.addEventListener("keydown", (event) => {
         body: JSON.stringify({x: x, y: y, turn: turn})
 	}).then((response) => response.json());
 });
-function redraw() {
+function redraw(lines) {
 	ctx.fillStyle = "white";
 	ctx.fillRect(0,0,600,400);
 	ctx.fillStyle = "blue";
 	for (m in list) {
 		ctx.fillRect(list[m].x-xOffset, list[m].y-yOffset, 1, 1);
+	}
+	ctx.fillStyle = "green";
+	//if (lines.length != 0) {
+	    console.log(lines)
+	//}
+	for (m in lines) {
+	    ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
 	}
 	ctx.fillStyle = "red";
 	ctx.fillRect(-2 - xOffset, -2 - yOffset, 4, 4);
@@ -83,6 +90,6 @@ socket.addEventListener("message", (event) => {
 	    list[number % max_points] = ({x: msg.x, y: msg.y});
 	    number += 1;
 	});
-	redraw();
+	redraw(data.lines);
 });
 

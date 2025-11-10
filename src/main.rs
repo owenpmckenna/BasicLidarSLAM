@@ -29,6 +29,7 @@ use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 use tokio::runtime::Runtime;
 use crate::Lidar::LidarUnit;
+use crate::LidarLocalizer::{InstantLidarLocalizer, Line};
 use crate::Webserver::{SendData, SmallData};
 
 //use rplidar_drv::{ScanMode, ScanOptions};
@@ -48,13 +49,17 @@ fn main() {
         webserver.serve().await;
     });
     let t = thread::spawn(move || {
+        let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
-            let points: Vec<SmallData> = ld.grab_points().unwrap().iter()
+            let points: Vec<(f32, f32)> = ld.grab_points().unwrap().iter()
                 // / 6.0 * 400.0 
                 .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
-                .map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
+                .collect();
+            let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
+            let i_localizer = InstantLidarLocalizer::new((0.0,0.0), 1000.0, &points);
+            localizer.process(i_localizer);
             //println!("got {} points!", points.len());
-            let to_send = SendData {data: points};
+            let to_send = SendData {data, lines: localizer.clone_lines()};
             tx.send(to_send).unwrap();
             sleep(Duration::from_millis(50));
         }
