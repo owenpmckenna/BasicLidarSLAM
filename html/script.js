@@ -73,12 +73,14 @@ function redraw(lines) {
 	for (m in list) {
 		ctx.fillRect(list[m].x-xOffset, list[m].y-yOffset, 1, 1);
 	}
-	ctx.fillStyle = "green";
 	//if (lines.length != 0) {
 	    console.log(lines)
 	//}
 	for (m in lines) {
+	    ctx.fillStyle = "green";
 	    ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
+	    ctx.fillStyle = "yellow";
+	    ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, lines[m].length, 4);
 	}
 	ctx.fillStyle = "red";
 	ctx.fillRect(-2 - xOffset, -2 - yOffset, 4, 4);
