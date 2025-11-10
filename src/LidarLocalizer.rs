@@ -101,6 +101,10 @@ pub struct InstantLidarLocalizer {
 impl InstantLidarLocalizer {
     //velocity is x,y (estimate) current speed in units per second. time is millis since scan started
     pub fn new(vel: (f32, f32), time: f32, points: &Vec<(f32, f32)>) -> InstantLidarLocalizer {
+        if points.len() < 10 {
+            //empty
+            return InstantLidarLocalizer { altered_point_list: vec![], lines: vec![] }
+        }
         let size = points.len() as f32;
         let time = time / 1000.0;//fraction of a second the scan lasted
         let scan_vel = (vel.0 * time, vel.1 * time);//distance traveled during scan
