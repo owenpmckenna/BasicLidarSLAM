@@ -59,7 +59,7 @@ fn main() {
             let i_localizer = InstantLidarLocalizer::new((0.0,0.0), 1000.0, &points);
             localizer.process(i_localizer);
             //println!("got {} points!", points.len());
-            let to_send = SendData {data, lines: localizer.clone_lines()};
+            let to_send = SendData {data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0)};
             tx.send(to_send).unwrap();
             sleep(Duration::from_millis(50));
         }

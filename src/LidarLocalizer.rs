@@ -22,8 +22,15 @@ impl LidarLocalizer {
             lines: vec![],
         }
     }
-    pub fn clone_lines(&self) -> Vec<Line> {
-        self.lines.iter().map(|it| *it).collect()
+    pub fn clone_lines(&self, func: fn(f32) -> f32) -> Vec<Line> {
+        self.lines.iter().map(|it| *it)
+            .map(|mut it| {
+                it.length = func(it.length);
+                it.mid.0 = func(it.mid.0);
+                it.mid.1 = func(it.mid.1);
+                it
+            })
+            .collect()
     }
     pub fn process(&mut self, instant: InstantLidarLocalizer) {
         //TODO fully redo this method
