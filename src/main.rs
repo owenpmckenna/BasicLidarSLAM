@@ -51,8 +51,10 @@ fn main() {
     let t = thread::spawn(move || {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
-            let points: Vec<(f32, f32)> = ld.grab_points().unwrap().iter()
-                // / 6.0 * 400.0 
+            let mut points0: Vec<(f32, f32)> = ld.grab_points().unwrap();
+            points0.sort_by(|a, b| a.1.total_cmp(&b.1));//this shouldn't be needed but this isn't python so we can afford it
+            let points: Vec<(f32, f32)> = points0.iter()
+                // / 6.0 * 400.0
                 .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
                 .collect();
             let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
@@ -61,7 +63,7 @@ fn main() {
             //println!("got {} points!", points.len());
             let to_send = SendData {data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0)};
             tx.send(to_send).unwrap();
-            sleep(Duration::from_millis(50));
+            //sleep(Duration::from_millis(50));
         }
     });
     t.join().expect("");

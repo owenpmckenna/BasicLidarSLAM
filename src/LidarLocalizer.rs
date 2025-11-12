@@ -23,7 +23,7 @@ impl LidarLocalizer {
         }
     }
     pub fn clone_lines(&self, func: fn(f32) -> f32) -> Vec<Line> {
-        self.lines.iter().map(|it| *it)
+        self.lines.iter().map(|it| it.clone())
             .map(|mut it| {
                 it.length = func(it.length);
                 it.mid.0 = func(it.mid.0);
@@ -71,17 +71,17 @@ impl InstantLine {
         Line {mid, slope, length}
     }
     const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.005;//5 cm
-    const INIT_LINE_POINTS: usize = 5;//TODO base it off of this
-    fn is_line(p: [(f32, f32); 5]) -> Option<InstantLine> {
-        let mut slopes = [0f32; 4];//must be 1 less than p.len()
+    pub const INIT_LINE_POINTS: usize = 5;//TODO base it off of this
+    fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
+        let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
         let mut avg = 0.0;
         for i in 0..slopes.len() {
-            slopes[i] = slope(p[i], p[i+1]).atan();
+            slopes[i] = slope(p[i], p[i+1]).atan();//0-2pi
             avg += slopes[i];
         }
-        avg = avg / 4.0;
-        let dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
-        let yes = avg.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
+        avg = avg / slopes.len() as f32;
+        let avg_dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
+        let yes = avg.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
             return None
         }
@@ -98,7 +98,11 @@ impl InstantLine {
         let new_distance = dist(*p, *near_point);//we will test if within 50 cm
         let to_add = (old_slope-new_slope).abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE;
         if to_add {
-            self.points.push(*p);
+            if left {
+                self.points.insert(0, *p);
+            } else {
+                self.points.push(*p);
+            }
         }
         to_add
     }
@@ -125,16 +129,24 @@ impl InstantLidarLocalizer {
         let mut i = 2usize;
         let mut lines = Vec::new();
         while i < altered_points.len()-2 {
-            let line = InstantLine::is_line(altered_points[i-2..i+3].try_into().unwrap());//test if 5 consecutive points are in a line
+            let line = InstantLine::is_line(altered_points[i..i+InstantLine::INIT_LINE_POINTS].try_into().unwrap());//test if consecutive points are in a line
             match line {
                 Some(mut it) => {
+                    let s = i;
                     //keep trying to add points until they don't "fit"
-                    i += 2;//because those points are in this line
-                    while i < altered_points.len() && it.should_add(&altered_points[i], false) {
+                    i += 5;//because those points are in this line
+                    while i < altered_points.len() && it.should_add(&altered_points[i], false) {//left false because these are after
                         i += 1;
+                    }//ok so now ideally we've found all the ones in the line, those we won't look over again
+                    //now we'll look for anything else in the line
+                    for x in i..altered_points.len() {
+                        it.should_add(&altered_points[x], false);
                     }
-                    i += 1;//to go past the points we were looking at...
-                    lines.push(it)
+                    for x in (0..s).rev() {//check all the others
+                        //reversed because that will keep the line in order
+                        it.should_add(&altered_points[x], true);
+                    }
+                    lines.push(it);
                 }
                 None => {/*ignore this*/}
             }
