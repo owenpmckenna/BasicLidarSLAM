@@ -76,7 +76,7 @@ impl InstantLine {
         let length = dist(self.points[0], *self.points.last().unwrap());
         Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
-    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.005;//5 cm
+    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.015;//15 cm
     pub const INIT_LINE_POINTS: usize = 5;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
