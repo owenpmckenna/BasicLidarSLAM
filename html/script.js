@@ -81,9 +81,11 @@ function redraw(lines) {
 	    ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
 	    //ctx.fillStyle = "yellow";
 	    //ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, lines[m].length, 4);
+	    ctx.strokeStyle = "orange";
+	    ctx.lineWidth = 3;
 	    ctx.beginPath();
-        ctx.moveTo(lines[m].p0[0], lines[m].p0[1]);
-        ctx.lineTo(lines[m].p1[0], lines[m].p1[1]);
+        ctx.moveTo(lines[m].p0[0] - xOffset, lines[m].p0[1] - xOffset);
+        ctx.lineTo(lines[m].p1[0] - xOffset, lines[m].p1[1] - xOffset);
         ctx.stroke();
 	}
 	ctx.fillStyle = "red";
