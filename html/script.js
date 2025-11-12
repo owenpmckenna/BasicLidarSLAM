@@ -84,8 +84,8 @@ function redraw(lines) {
 	    ctx.strokeStyle = "orange";
 	    ctx.lineWidth = 3;
 	    ctx.beginPath();
-        ctx.moveTo(lines[m].p0[0] - xOffset, lines[m].p0[1] - xOffset);
-        ctx.lineTo(lines[m].p1[0] - xOffset, lines[m].p1[1] - xOffset);
+        ctx.moveTo(lines[m].p0[0] - xOffset, lines[m].p0[1] - yOffset);
+        ctx.lineTo(lines[m].p1[0] - xOffset, lines[m].p1[1] - yOffset);
         ctx.stroke();
 	}
 	ctx.fillStyle = "red";
