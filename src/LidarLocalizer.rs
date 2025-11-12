@@ -28,6 +28,10 @@ impl LidarLocalizer {
                 it.length = func(it.length);
                 it.mid.0 = func(it.mid.0);
                 it.mid.1 = func(it.mid.1);
+                it.p0.0 = func(it.p0.0);
+                it.p0.1 = func(it.p0.1);
+                it.p1.0 = func(it.p1.0);
+                it.p1.1 = func(it.p1.1);
                 it
             })
             .collect()
@@ -44,7 +48,9 @@ impl LidarLocalizer {
 pub struct Line {
     pub mid: (f32, f32),
     pub slope: f32,
-    pub length: f32
+    pub length: f32,
+    pub p0: (f32, f32),//debug values
+    pub p1: (f32, f32)
 }
 fn slope(p0: (f32, f32), p1: (f32, f32)) -> f32 {
     (p1.1-p0.1)/(p1.0-p0.0)
@@ -68,10 +74,10 @@ impl InstantLine {
         let mid = (avg_x, avg_y);
         let slope = slope(self.points[0], *self.points.last().unwrap());
         let length = dist(self.points[0], *self.points.last().unwrap());
-        Line {mid, slope, length}
+        Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
     const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.005;//5 cm
-    pub const INIT_LINE_POINTS: usize = 5;//TODO base it off of this
+    pub const INIT_LINE_POINTS: usize = 5;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
         let mut avg = 0.0;
@@ -87,8 +93,8 @@ impl InstantLine {
         }
         Some(InstantLine {points: p.to_vec()})
     }
-    const WITHIN_DEGREES: f32 = 7.5;
-    const POINT_DISTANCE: f32 = 0.05;//50 cm
+    const WITHIN_DEGREES: f32 = 12.5;
+    const POINT_DISTANCE: f32 = 0.1;//100 cm
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { &self.points[0] } else { self.points.last().unwrap() };//closest point
