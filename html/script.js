@@ -1,9 +1,9 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
-const serveraddr = "10.64.53.28:8081";
+const serveraddr = "10.64.52.126:8081";
 const socket = new WebSocket("ws://" + serveraddr + "/data");
 list = [];
-let max_points = 7000;
+let max_points = 600;
 let number = 0;
 for (let i = 0; i < max_points; i += 1) {
     list.push({x: 0, y: 0});
