@@ -94,16 +94,29 @@ impl InstantLine {
         let length = dist(self.points[0], *self.points.last().unwrap());
         Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
+    fn avg_point_dist_from_center(&self) -> f32 {
+        let mid = self.mid_point();
+        let slope = self.self_avg_slope();
+        self.points.iter().map(|it| distance_to_line(mid, slope, *it)).sum::<f32>() / self.points.len() as f32
+    }
+    pub fn self_avg_slope(&self) -> f32 {
+        Self::avg_slope(self.points.as_slice())
+    }
+    fn avg_slope(points: &[(f32, f32)]) -> f32 {
+        let mut avg_slope = 0.0;
+        for (i, point) in points.iter().enumerate() {
+            if i == points.len() - 1 {
+                continue;
+            }
+            avg_slope += slope(*point, points[i+1]).atan();//0-2pi
+        }
+        avg_slope / (points.len()-1) as f32
+    }
     const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.015;//15 cm
-    pub const INIT_LINE_POINTS: usize = 5;
+    pub const INIT_LINE_POINTS: usize = 7;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
-        let mut avg = 0.0;
-        for i in 0..slopes.len() {
-            slopes[i] = slope(p[i], p[i+1]).atan();//0-2pi
-            avg += slopes[i];
-        }
-        avg = avg / slopes.len() as f32;
+        let avg = Self::avg_slope(&p);
         let avg_dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
         let yes = avg.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
@@ -118,8 +131,8 @@ impl InstantLine {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { &self.points[0] } else { self.points.last().unwrap() };//closest point
         let far_point = if !left { &self.points[0] } else { self.points.last().unwrap() };//farthest away point
-        let new_slope = (if left {slope(*p, *far_point)} else {slope(*far_point, *p)}).atan();//what old slope will be if we accept in radians
-        let old_slope = slope(self.points[0], *self.points.last().unwrap()).atan();//"avg slope" of line so far
+        let new_slope = (if left {slope(*p, *far_point)} else {slope(*far_point, *p)}).atan();//what slope will be if we accept in radians
+        let old_slope = self.self_avg_slope();//"avg slope" of line so far
         let new_distance = dist(*p, *near_point);//we will test if within 50 cm
         let dist_to_line = distance_to_line(*near_point, old_slope, *p);//
         let to_add = (old_slope-new_slope).abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
@@ -145,39 +158,45 @@ impl InstantLidarLocalizer {
             return InstantLidarLocalizer { altered_point_list: vec![], lines: vec![] }
         }
         let size = points.len() as f32;
-        let time = time / 1000.0;//fraction of a second the scan lasted
-        let scan_vel = (vel.0 * time, vel.1 * time);//distance traveled during scan
+        let time = time / 1000.0; //fraction of a second the scan lasted
+        let scan_vel = (vel.0 * time, vel.1 * time); //distance traveled during scan
         let altered_points: Vec<(f32, f32)> = points.iter().enumerate()
             //index -> fraction of list completed
-            .map(|(i, it)| (i as f32/size, it))
-            .map(|(i,it)| (it.0 + (scan_vel.0 * i), it.1 + (scan_vel.1 * i)))
+            .map(|(i, it)| (i as f32 / size, it))
+            .map(|(i, it)| (it.0 + (scan_vel.0 * i), it.1 + (scan_vel.1 * i)))
             .collect();
         let mut i = 2usize;
         let mut lines = Vec::new();
-        while i < altered_points.len()-5 {
-            let line = InstantLine::is_line(altered_points[i..i+InstantLine::INIT_LINE_POINTS].try_into().unwrap());//test if consecutive points are in a line
+        while i < altered_points.len() - 5 {
+            let line = InstantLine::is_line(altered_points[i..i + InstantLine::INIT_LINE_POINTS].try_into().unwrap()); //test if consecutive points are in a line
             match line {
                 Some(mut it) => {
                     let s = i;
                     //keep trying to add points until they don't "fit"
-                    i += 5;//because those points are in this line
-                    while i < altered_points.len() && it.should_add(&altered_points[i], false) {//left false because these are after
-                        i += 1;
-                    }//ok so now ideally we've found all the ones in the line, those we won't look over again
+                    //i += 5;//because those points are in this line
+                    let mut temp_i = i + InstantLine::INIT_LINE_POINTS;
+                    while temp_i < altered_points.len() && it.should_add(&altered_points[i], false) { //left false because these are after
+                        temp_i += 1;
+                    } //ok so now ideally we've found all the ones in the line, those we won't look over again
                     //now we'll look for anything else in the line
-                    for x in i..altered_points.len() {
+                    for x in temp_i..altered_points.len() {
                         it.should_add(&altered_points[x], false);
                     }
-                    for x in (0..s).rev() {//check all the others
+                    for x in (0..s).rev() { //check all the others
                         //reversed because that will keep the line in order
                         it.should_add(&altered_points[x], true);
                     }
                     lines.push(it);
                 }
-                None => {/*ignore this*/}
+                None => { /*ignore this*/ }
             }
             i += 1;
         }
+        //should sort in ascending order of distances
+        lines.sort_by(|x, y| y.avg_point_dist_from_center().total_cmp(&x.avg_point_dist_from_center()));
+        lines = lines.into_iter().filter(|it| {
+            it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
+        }).collect();
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
