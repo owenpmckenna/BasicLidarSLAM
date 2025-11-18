@@ -74,7 +74,8 @@ fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -
 }
 
 struct InstantLine {
-    points: Vec<(f32, f32)>
+    points: Vec<(f32, f32)>,
+    known_avg_slope: f32
 }
 impl InstantLine {
     fn mid_point(&self) -> (f32, f32) {
@@ -94,13 +95,14 @@ impl InstantLine {
         let length = dist(self.points[0], *self.points.last().unwrap());
         Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
-    fn avg_point_dist_from_center(&self) -> f32 {
+    fn avg_point_dist_from_center(&mut self) -> f32 {
         let mid = self.mid_point();
         let slope = self.self_avg_slope();
         self.points.iter().map(|it| distance_to_line(mid, slope, *it)).sum::<f32>() / self.points.len() as f32
     }
-    pub fn self_avg_slope(&self) -> f32 {
-        Self::avg_slope(self.points.as_slice())
+    pub fn self_avg_slope(&mut self) -> f32 {
+        self.known_avg_slope = Self::avg_slope(self.points.as_slice());
+        self.known_avg_slope
     }
     fn avg_slope(points: &[(f32, f32)]) -> f32 {
         let mut avg_slope = 0.0;
@@ -122,19 +124,19 @@ impl InstantLine {
         if !yes {
             return None
         }
-        Some(InstantLine {points: p.to_vec()})
+        Some(InstantLine {points: p.to_vec(), known_avg_slope: avg})
     }
     const WITHIN_DEGREES: f32 = 12.5;
     const POINT_DISTANCE: f32 = 0.1;//100 cm
     const STRAIGHTNESS: f32 = 0.1;//100 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
-        let near_point = if left { &self.points[0] } else { self.points.last().unwrap() };//closest point
-        let far_point = if !left { &self.points[0] } else { self.points.last().unwrap() };//farthest away point
-        let new_slope = (if left {slope(*p, *far_point)} else {slope(*far_point, *p)}).atan();//what slope will be if we accept in radians
-        let old_slope = self.self_avg_slope();//"avg slope" of line so far
-        let new_distance = dist(*p, *near_point);//we will test if within 50 cm
-        let dist_to_line = distance_to_line(*near_point, old_slope, *p);//
+        let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
+        let far_point = if !left { self.points[0] } else { *self.points.last().unwrap() };//farthest away point
+        let new_slope = (if left {slope(*p, far_point)} else {slope(far_point, *p)}).atan();//what slope will be if we accept in radians
+        let old_slope = self.known_avg_slope;//"avg slope" of line so far
+        let new_distance = dist(*p, near_point);//we will test if within 50 cm
+        let dist_to_line = distance_to_line(near_point, old_slope, *p);//
         let to_add = (old_slope-new_slope).abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
         if to_add {
             if left {
@@ -142,6 +144,7 @@ impl InstantLine {
             } else {
                 self.points.push(*p);
             }
+            self.known_avg_slope = self.self_avg_slope();
         }
         to_add
     }
@@ -193,7 +196,7 @@ impl InstantLidarLocalizer {
             i += 1;
         }
         //should sort in ascending order of distances
-        lines.sort_by(|x, y| y.avg_point_dist_from_center().total_cmp(&x.avg_point_dist_from_center()));
+        //lines.sort_by(|x, y| y.avg_point_dist_from_center().total_cmp(&x.avg_point_dist_from_center()));
         lines = lines.into_iter().filter(|it| {
             it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
         }).collect();
