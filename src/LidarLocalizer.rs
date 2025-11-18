@@ -167,7 +167,7 @@ impl InstantLidarLocalizer {
             .collect();
         let mut i = 2usize;
         let mut lines = Vec::new();
-        while i < altered_points.len() - 5 {
+        while i < altered_points.len() - InstantLine::INIT_LINE_POINTS {
             let line = InstantLine::is_line(altered_points[i..i + InstantLine::INIT_LINE_POINTS].try_into().unwrap()); //test if consecutive points are in a line
             match line {
                 Some(mut it) => {
