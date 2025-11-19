@@ -126,7 +126,7 @@ impl InstantLine {
             .sum();
         sum / (points.len()-1) as f32
     }
-    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.015;//15 cm
+    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.050;//50 cm
     pub const INIT_LINE_POINTS: usize = 7;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         //let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
@@ -139,8 +139,8 @@ impl InstantLine {
         Some(InstantLine {points: p.to_vec(), known_avg_slope: avg})
     }
     const WITHIN_DEGREES: f32 = 12.5;
-    const POINT_DISTANCE: f32 = 0.1;//100 cm
-    const STRAIGHTNESS: f32 = 0.05;//50 cm. this is now far new points can be from the line between the first and last point
+    const POINT_DISTANCE: f32 = 0.1;//100 cm. dist between the closest point in list and our new point
+    const STRAIGHTNESS: f32 = 0.1;//100 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
