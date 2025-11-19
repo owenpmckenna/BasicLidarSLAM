@@ -81,10 +81,35 @@ fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -
     // Return the absolute value of the numerator divided by the denominator
     numerator.abs() / denominator
 }
-
+trait Reducible where Self: Sized {
+    fn best(a: &Self, b: &Self) -> bool;//true = first best, false = second best
+    fn are_equivalent(&self, o: &Self) -> bool;
+}
 struct InstantLine {
     points: Vec<(f32, f32)>,
     known_avg_slope: f32
+}
+impl Reducible for InstantLine {
+    fn best(a: &InstantLine, b: &InstantLine) -> bool {
+        if a.points.len() > b.points.len() {
+            true
+        } else {
+            false
+        }
+    }
+    fn are_equivalent(&self, other: &InstantLine) -> bool {
+        let find = self.points.iter().enumerate().find_map(|(i, it)| {
+            let x = other.points.iter().enumerate().find(|(_i2, it2)| it.eq(it2));
+            match x {
+                None => { None }
+                Some((i2, it2)) => { Some((i, i2)) }
+            }
+        });
+        match find {
+            None => { false }
+            Some(_) => { true },
+        }
+    }
 }
 impl InstantLine {
     fn mid_point(&self) -> (f32, f32) {
@@ -214,10 +239,36 @@ impl InstantLidarLocalizer {
             i += 1;
         }
         //should sort in ascending order of distances
-        lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
+        //lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
         //lines = lines.into_iter().filter(|it| {
         //    it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
         //}).collect();
+        lines.reduce();
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
+    }
+}
+trait Reduce<T> where Self: Sized, T: Reducible {
+    fn reduce(&mut self);
+}
+impl Reduce<InstantLine> for Vec<InstantLine> {
+    fn reduce(&mut self) {
+        let mut len = self.len();
+        for x in 0..len {
+            if x >= len {//guard
+                continue
+            }
+            let mut y = x + 1;
+            while y < len {
+                if self[x].are_equivalent(&self[y]) {
+                    len -= 1;
+                    if !InstantLine::best(&self[x], &self[y]) {
+                        self.swap(x, y);
+                    }
+                    self.remove(y);
+                } else {
+                    y += 1;
+                }
+            }
+        }
     }
 }
