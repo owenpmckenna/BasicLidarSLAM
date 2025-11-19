@@ -91,7 +91,7 @@ struct InstantLine {
 }
 impl Reducible for InstantLine {
     fn best(a: &InstantLine, b: &InstantLine) -> bool {
-        if a.points.len() > b.points.len() {
+        if a.dist() > b.dist() {
             true
         } else {
             false
@@ -122,6 +122,9 @@ impl InstantLine {
         avg_x = avg_x / (self.points.len() as f32);
         avg_y = avg_y / (self.points.len() as f32);
         (avg_x, avg_y)
+    }
+    fn dist(&self) -> f32 {
+        dist(self.points[0], self.points[self.points.len()-1])
     }
     fn into_line(self) -> Line {
         let mid = self.mid_point();
