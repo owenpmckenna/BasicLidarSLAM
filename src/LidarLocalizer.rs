@@ -140,7 +140,7 @@ impl InstantLine {
     }
     const WITHIN_DEGREES: f32 = 12.5;
     const POINT_DISTANCE: f32 = 0.1;//100 cm. dist between the closest point in list and our new point
-    const STRAIGHTNESS: f32 = 0.1;//100 cm. this is now far new points can be from the line between the first and last point
+    const STRAIGHTNESS: f32 = 0.01;//10 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
@@ -205,9 +205,9 @@ impl InstantLidarLocalizer {
         }
         //should sort in ascending order of distances
         lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
-        lines = lines.into_iter().filter(|it| {
-            it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
-        }).collect();
+        //lines = lines.into_iter().filter(|it| {
+        //    it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
+        //}).collect();
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
