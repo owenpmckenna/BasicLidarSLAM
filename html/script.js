@@ -1,6 +1,6 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
-const serveraddr = "10.64.52.101:8081";
+const serveraddr = "10.64.53.31:8081";
 const socket = new WebSocket("ws://" + serveraddr + "/data");
 list = [];
 let max_points = 600;

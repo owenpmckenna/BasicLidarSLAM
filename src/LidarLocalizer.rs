@@ -95,30 +95,42 @@ impl InstantLine {
         let length = dist(self.points[0], *self.points.last().unwrap());
         Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
-    fn avg_point_dist_from_center(&mut self) -> f32 {
+    fn avg_point_dist_from_center(&self) -> f32 {
         let mid = self.mid_point();
         let slope = self.self_avg_slope();
         self.points.iter().map(|it| distance_to_line(mid, slope, *it)).sum::<f32>() / self.points.len() as f32
     }
-    pub fn self_avg_slope(&mut self) -> f32 {
-        self.known_avg_slope = Self::avg_slope(self.points.as_slice());
-        self.known_avg_slope
+    pub fn self_avg_slope(&self) -> f32 {
+        Self::avg_slope(self.points.as_slice())
     }
     fn avg_slope(points: &[(f32, f32)]) -> f32 {
-        let mut avg_slope = 0.0;
-        for (i, point) in points.iter().enumerate() {
-            if i == points.len() - 1 {
-                continue;
-            }
-            avg_slope += slope(*point, points[i+1]).atan();//0-2pi
-        }
-        avg_slope / (points.len()-1) as f32
+        let sum: f32 = points
+            .windows(2)
+            .map(|w| {
+                let dx = w[1].0 - w[0].0;
+                let dy = w[1].1 - w[0].1;
+                dy.atan2(dx)
+            })
+            .sum();
+        sum / (points.len()-1) as f32
+    }
+    //this returns the avg amount that each pair of points' slope is different from the avg slope
+    fn compare_avg_slope(points: &[(f32, f32)], avg_slope: f32) -> f32 {
+        let sum: f32 = points
+            .windows(2)
+            .map(|w| {
+                let dx = w[1].0 - w[0].0;
+                let dy = w[1].1 - w[0].1;
+                (dy.atan2(dx) - avg_slope).abs()
+            })
+            .sum();
+        sum / (points.len()-1) as f32
     }
     const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.015;//15 cm
     pub const INIT_LINE_POINTS: usize = 7;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
-        let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
-        let avg = Self::avg_slope(&p);
+        //let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
+        let avg = Self::compare_avg_slope(&p, Self::avg_slope(&p));
         let avg_dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
         let yes = avg.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
@@ -128,7 +140,7 @@ impl InstantLine {
     }
     const WITHIN_DEGREES: f32 = 12.5;
     const POINT_DISTANCE: f32 = 0.1;//100 cm
-    const STRAIGHTNESS: f32 = 0.1;//100 cm. this is now far new points can be from the line between the first and last point
+    const STRAIGHTNESS: f32 = 0.05;//50 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
@@ -177,12 +189,8 @@ impl InstantLidarLocalizer {
                     let s = i;
                     //keep trying to add points until they don't "fit"
                     //i += 5;//because those points are in this line
-                    let mut temp_i = i + InstantLine::INIT_LINE_POINTS;
-                    while temp_i < altered_points.len() && it.should_add(&altered_points[i], false) { //left false because these are after
-                        temp_i += 1;
-                    } //ok so now ideally we've found all the ones in the line, those we won't look over again
-                    //now we'll look for anything else in the line
-                    for x in temp_i..altered_points.len() {
+                    //now we'll look for everything else in the line
+                    for x in (i+InstantLine::INIT_LINE_POINTS)..altered_points.len() {
                         it.should_add(&altered_points[x], false);
                     }
                     for x in (0..s).rev() { //check all the others
@@ -196,7 +204,7 @@ impl InstantLidarLocalizer {
             i += 1;
         }
         //should sort in ascending order of distances
-        //lines.sort_by(|x, y| y.avg_point_dist_from_center().total_cmp(&x.avg_point_dist_from_center()));
+        lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
         lines = lines.into_iter().filter(|it| {
             it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
         }).collect();
