@@ -1,6 +1,15 @@
+use std::cmp::min;
 use std::f32::consts::PI;
 use serde::{Deserialize, Serialize};
 
+fn angle_comp_rad(a: f32, b: f32) -> f32 {
+    //min(abs(a-b), 360-abs(a-b)
+    (a-b).abs().min((2.0*PI)-(a-b).abs())
+}
+fn angle_comp_deg(a: f32, b: f32) -> f32 {
+    //min(abs(a-b), 360-abs(a-b)
+    (a-b).abs().min(360.0-(a-b).abs())
+}
 //velocity is units per second!!!
 //all angles and stuff in radians
 //slope usually in radians
@@ -103,6 +112,7 @@ impl InstantLine {
     pub fn self_avg_slope(&self) -> f32 {
         Self::avg_slope(self.points.as_slice())
     }
+    //this is in radians because im an idiot
     fn avg_slope(points: &[(f32, f32)]) -> f32 {
         let sum: f32 = points
             .windows(2)
@@ -114,14 +124,14 @@ impl InstantLine {
             .sum();
         sum / (points.len()-1) as f32
     }
-    //this returns the avg amount that each pair of points' slope is different from the avg slope
+    //this returns the avg amount that each pair of points' slope (in radians) is different from the avg slope
     fn compare_avg_slope(points: &[(f32, f32)], avg_slope: f32) -> f32 {
         let sum: f32 = points
             .windows(2)
             .map(|w| {
                 let dx = w[1].0 - w[0].0;
                 let dy = w[1].1 - w[0].1;
-                (dy.atan2(dx) - avg_slope).abs()
+                angle_comp_rad(dy.atan2(dx), avg_slope)
             })
             .sum();
         sum / (points.len()-1) as f32
@@ -149,7 +159,7 @@ impl InstantLine {
         let old_slope = self.known_avg_slope;//"avg slope" of line so far
         let new_distance = dist(*p, near_point);//we will test if within 50 cm
         let dist_to_line = distance_to_line(near_point, old_slope, *p);//
-        let to_add = (old_slope-new_slope).abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
+        let to_add = angle_comp_rad(old_slope, new_slope) < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
         if to_add {
             if left {
                 self.points.insert(0, *p);
