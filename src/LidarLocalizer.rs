@@ -98,6 +98,9 @@ impl Reducible for InstantLine {
         }
     }
     fn are_equivalent(&self, other: &InstantLine) -> bool {
+        if angle_comp_rad(self.known_avg_slope, other.known_avg_slope) > Self::EQU_WITHIN_DEGREES {
+            return false;
+        }
         let find = self.points.iter().enumerate().find_map(|(i, it)| {
             let x = other.points.iter().enumerate().find(|(_i2, it2)| it.eq(it2));
             match x {
@@ -177,6 +180,7 @@ impl InstantLine {
         Some(InstantLine {points: p.to_vec(), known_avg_slope: avg})
     }
     const WITHIN_DEGREES: f32 = 12.5;
+    const EQU_WITHIN_DEGREES: f32 = 15.0;
     const POINT_DISTANCE: f32 = 0.1;//100 cm. dist between the closest point in list and our new point
     const STRAIGHTNESS: f32 = 0.01;//10 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {

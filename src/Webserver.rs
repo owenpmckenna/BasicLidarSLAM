@@ -2,7 +2,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc, Mutex};
 use axum::extract::{State, WebSocketUpgrade};
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse};
 use axum::{Error, Form, Json, Router};
 use axum::body::Bytes;
 use axum::http::{HeaderMap, StatusCode};
@@ -47,11 +47,12 @@ impl Webserver {
         let cors = CorsLayer::new().allow_origin(Any);
         let app = Router::new()
             .route("/", any(Webserver::root))
+            .route("/script.js", any(Webserver::script))
             .route("/data", any(Webserver::data))
             .route("/motorcontrol", post(Webserver::motorcontrol))
             .with_state(state)
             .layer(cors);
-        let listener = TcpListener::bind("0.0.0.0:8081").await.unwrap();
+        let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
         Webserver {router: app, tcp_listener: listener}
     }
     pub async fn serve(self) {
@@ -68,8 +69,11 @@ impl Webserver {
         }
         Ok((HeaderMap::new(), Bytes::from("{}")))
     }
-    async fn root() -> &'static str {
-        "hello, world"
+    async fn root() -> impl IntoResponse {
+        Html(include_str!("../html/index.html"))
+    }
+    async fn script() -> impl IntoResponse {
+        Html(include_str!("../html/script.js"))
     }
     async fn data(State(state): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
         ws.on_upgrade(move |socket| Webserver::handle_socket(state, socket))
