@@ -51,7 +51,7 @@ fn main() {
     let t = thread::spawn(move || {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
-            let mut points0: Vec<(f32, f32)> = ld.grab_points().unwrap();
+            let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
             points0.sort_by(|a, b| a.1.total_cmp(&b.1));//this shouldn't be needed but this isn't python so we can afford it
             let points: Vec<(f32, f32)> = points0.iter()
                 // / 6.0 * 400.0

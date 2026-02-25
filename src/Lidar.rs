@@ -28,7 +28,7 @@ impl LidarUnit {
             .data_bits(DataBits::Eight)
             .flow_control(FlowControl::None)
             .parity(Parity::None)
-            .timeout(Duration::from_millis(100))
+            .timeout(Duration::from_millis(1000))
             .open().unwrap();
         //let mut serial_port = serialport::new("/dev/ttyUSB0", &s)?;
         serial_port
@@ -39,8 +39,14 @@ impl LidarUnit {
             serial_port,
         );
         let mut dev = RplidarDevice::new(channel);
-        dev.start_scan_with_options(&ScanOptions::force_scan())?;
-        dev.grab_scan_point();//Ignore result
+        let mut scan_modes = dev.get_all_supported_scan_modes().expect("could not get scan modes");
+        scan_modes.sort_by_key(|it| (it.us_per_sample * 1000.0) as u128);
+        for i in &scan_modes {
+            println!("scan mode: id:{}, name:{}, us per sample: {}, max dist: {}", i.id, i.name, i.us_per_sample, i.max_distance)
+        }
+        //we want the lowest us per sample
+        dev.start_scan_with_options(&ScanOptions::force_scan_with_mode(scan_modes.first().unwrap().id))?;
+        let _ = dev.grab_scan_point();//Ignore result
         Ok(dev)
     }
     pub(crate) fn new() -> LidarUnit {
@@ -58,7 +64,7 @@ impl LidarUnit {
         self.lidar_dev = Some(match Self::get_rplidar() {
             Ok(it) => {it}
             Err(err) => {
-                println!("Error: {}", err);
+                println!("Error (regen connection): {}", err);
                 self.fatals += 1;
                 if self.fatals > FATALS_MAX {
                     return None
@@ -122,7 +128,7 @@ impl LidarUnit {
                     }
                     self.grab_points()
                 } else {
-                    println!("Error: {:?}", it);
+                    println!("Error: {:?}, fatals: {}", it, self.fatals);
                     self.fatals += 1;
                     if self.fatals > FATALS_MAX {
                         Err(())
