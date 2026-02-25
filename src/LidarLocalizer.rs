@@ -74,7 +74,7 @@ fn dist(p0: (f32, f32), p1: (f32, f32)) -> f32 {
 fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -> f32 {
     let (x1, y1) = line_point;  // Point on the line
     let (x0, y0) = new_point;   // Point to find the distance to
-
+    //TODO TODO TODO you idiot you mixed up slope and radians like, a *bunch* so fix that asap
     // Calculate the numerator: |m(x0 - x1) - (y0 - y1)|
     let numerator = (slope * (x0 - x1)) - (y0 - y1);
 
@@ -83,6 +83,16 @@ fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -
 
     // Return the absolute value of the numerator divided by the denominator
     numerator.abs() / denominator
+}
+fn average_max_dist_to_line(line_point: (f32, f32), slope: f32, line_points: &[(f32, f32)]) -> (f32, f32) {
+    let mut max: f32 = 0.0;
+    let x = line_points.iter()
+        .map(|it| {
+            let d = distance_to_line(line_point, slope, *it);
+            max = max.max(d);
+            d
+        });
+    (x.sum::<f32>() / line_points.len() as f32, max)
 }
 trait Reducible where Self: Sized {
     fn best(a: &Self, b: &Self) -> bool;//true = first best, false = second best
@@ -164,34 +174,35 @@ impl InstantLine {
             .sum();
         sum / (points.len()-1) as f32
     }
-    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.050;//50 cm
+    const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.003;//3 cm
     pub const INIT_LINE_POINTS: usize = 7;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         //let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
-        let avg = Self::avg_slope(&p);
-        let avg_deg_off = Self::compare_avg_slope(&p, avg);
-        let avg_dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
-        let yes = avg_deg_off.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
+        let slope = slope(p[0], *p.last().unwrap());
+        let avg_deg_rad = Self::avg_slope(&p);
+        let avg_deg_rad_off = Self::compare_avg_slope(&p, avg_deg_rad);
+        let (avg_dist, max_dist) = average_max_dist_to_line(p[0], slope, &p);
+        let yes = avg_deg_rad_off.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
             return None
         }
         //TODO: cache current slope, compare it against other points we might add to solve that slope drift problem. also < computation probably
         //TODO: don't let known_avg slope change later. this stops slope drift from happening, and then we can make point adding criteria much looser
         //TODO: this will require more logic around left and right possibly
-        Some(InstantLine {points: p.to_vec(), known_avg_slope: avg})
+        Some(InstantLine {points: p.to_vec(), known_avg_slope: avg_deg_rad })
     }
     const WITHIN_DEGREES: f32 = 12.5;
     const EQU_WITHIN_DEGREES: f32 = 15.0;
-    const POINT_DISTANCE: f32 = 0.1;//100 cm. dist between the closest point in list and our new point
-    const STRAIGHTNESS: f32 = 0.01;//10 cm. this is now far new points can be from the line between the first and last point
+    const POINT_DISTANCE: f32 = 0.01;//10 cm. dist between the closest point in list and our new point
+    const STRAIGHTNESS: f32 = 0.003;//3 cm. this is now far new points can be from the line between the first and last point
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
         let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
         let far_point = if !left { self.points[0] } else { *self.points.last().unwrap() };//farthest away point
         let new_slope = (if left {slope(*p, far_point)} else {slope(far_point, *p)}).atan();//what slope will be if we accept in radians
         let old_slope = self.known_avg_slope;//"avg slope" of line so far
-        let new_distance = dist(*p, near_point);//we will test if within 50 cm
-        let dist_to_line = distance_to_line(near_point, old_slope, *p);//
+        let new_distance = dist(*p, near_point);//we will test if within 10 cm
+        let dist_to_line = distance_to_line(near_point, old_slope.tan(), *p);//
         let to_add = angle_comp_rad(old_slope, new_slope) < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
         if to_add {
             if left {
