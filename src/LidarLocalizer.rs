@@ -168,9 +168,10 @@ impl InstantLine {
     pub const INIT_LINE_POINTS: usize = 7;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         //let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
-        let avg = Self::compare_avg_slope(&p, Self::avg_slope(&p));
+        let avg = Self::avg_slope(&p);
+        let avg_deg_off = Self::compare_avg_slope(&p, avg);
         let avg_dist = dist(p[0], *p.last().unwrap()) / p.len() as f32;
-        let yes = avg.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
+        let yes = avg_deg_off.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
             return None
         }
@@ -198,7 +199,7 @@ impl InstantLine {
             } else {
                 self.points.push(*p);
             }
-            self.known_avg_slope = self.self_avg_slope();//TODO remove
+            //self.known_avg_slope = self.self_avg_slope();//TODO remove
         }
         to_add
     }
