@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::f32::consts::PI;
 use serde::{Deserialize, Serialize};
+use tokio::net::unix::pid_t;
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
@@ -147,15 +148,9 @@ impl InstantLine {
     }
     //this is in radians because im an idiot
     fn avg_slope(points: &[(f32, f32)]) -> f32 {
-        let sum: f32 = points
-            .windows(2)
-            .map(|w| {
-                let dx = w[1].0 - w[0].0;
-                let dy = w[1].1 - w[0].1;
-                dy.atan2(dx)
-            })
-            .sum();
-        sum / (points.len()-1) as f32
+        let dx = points.last().unwrap().0 - points[0].0;
+        let dy = points.last().unwrap().1 - points[0].1;
+        dy.atan2(dx)
     }
     //this returns the avg amount that each pair of points' slope (in radians) is different from the avg slope
     fn compare_avg_slope(points: &[(f32, f32)], avg_slope: f32) -> f32 {
