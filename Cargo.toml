@@ -23,6 +23,6 @@ futures-util = { version = "0.3.31", features = ["default", "futures-sink"] }
 mpu6050 = {version = "0.1.6"}
 
 [profile.release]
-lto = "fat"
+lto = "thin"
 codegen-units = 1
 opt-level = 3
