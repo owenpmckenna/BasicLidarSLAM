@@ -5,7 +5,7 @@ use tokio::net::unix::pid_t;
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
-    (a-b).abs().min((2.0*PI)-(a-b).abs())
+    (a-b).abs().min((2.0*PI)-((a-b).abs()))
 }
 fn angle_comp_deg(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
@@ -194,16 +194,25 @@ impl InstantLine {
     const WITHIN_DEGREES: f32 = 12.5;
     const EQU_WITHIN_DEGREES: f32 = 15.0;
     const POINT_DISTANCE: f32 = 0.01;//10 cm. dist between the closest point in list and our new point
-    const STRAIGHTNESS: f32 = 0.003;//3 cm. this is now far new points can be from the line between the first and last point
+    const STRAIGHTNESS: f32 = 0.005;//5 cm. this is now far new points can be from the line between the first and last point
+    fn near_far_points_dist(points: &[(f32, f32)], new_point: (f32, f32)) -> ((f32, f32), (f32, f32), f32, f32){
+        let p0 = *points.first().unwrap();
+        let p1 = *points.last().unwrap();
+        let d0 = dist(p0, new_point);
+        let d1 = dist(p1, new_point);
+        if d0 < d1 {
+            (p0, p1, d0, d1)
+        } else {
+            (p1, p0, d1, d0)
+        }
+    }
     fn should_add(&mut self, p: &(f32, f32), left: bool) -> bool {
         //NOTE: slopes always left to right. Assume points sorted.
-        let near_point = if left { self.points[0] } else { *self.points.last().unwrap() };//closest point
-        let far_point = if !left { self.points[0] } else { *self.points.last().unwrap() };//farthest away point
+        let (near_point, far_point, new_distance, _) = Self::near_far_points_dist(&self.points, *p);
         let new_slope = (if left {slope(*p, far_point)} else {slope(far_point, *p)}).atan();//what slope will be if we accept in radians
         let old_slope = self.known_avg_slope;//"avg slope" of line so far
-        let new_distance = dist(*p, near_point);//we will test if within 10 cm
         let dist_to_line = distance_to_line(near_point, old_slope.tan(), *p);//
-        let to_add = angle_comp_rad(old_slope, new_slope) < (Self::WITHIN_DEGREES / 180.0 * PI) && new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
+        let to_add = /*angle_comp_rad(old_slope, new_slope) < (Self::WITHIN_DEGREES / 180.0 * PI) && */new_distance < Self::POINT_DISTANCE && dist_to_line < Self::STRAIGHTNESS;
         if to_add {
             if left {
                 self.points.insert(0, *p);

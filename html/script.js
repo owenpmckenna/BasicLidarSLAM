@@ -77,8 +77,8 @@ function redraw(lines) {
 	    console.log(lines)
 	//}
 	for (m in lines) {
-	    ctx.fillStyle = "green";
-	    ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
+	    //ctx.fillStyle = "green";
+	    //ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
 	    //ctx.fillStyle = "yellow";
 	    //ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, lines[m].length, 4);
 	    ctx.strokeStyle = "orange";
