@@ -224,8 +224,8 @@ impl InstantLine {
         }
         to_add
     }
-    fn combine(&mut self, other: &InstantLine) {
-        other.points.iter().for_each(|it| self.points.push(*it));
+    fn combine(&mut self, other: InstantLine) {
+        other.points.into_iter().for_each(|it| self.points.push(it));
         let mut temp: Vec<(f32, f32)> = self.points.iter()
             .map(|it| cartesian_to_polar_radians(it.0, it.1))
             .collect();
@@ -304,8 +304,8 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                     if !InstantLine::best(&self[x], &self[y]) {
                         self.swap(x, y);
                     }
-                    self[x].combine(&self[y]);
-                    self.remove(y);
+                    let old = self.remove(y);
+                    self[x].combine(old);
                 } else {
                     y += 1;
                 }
