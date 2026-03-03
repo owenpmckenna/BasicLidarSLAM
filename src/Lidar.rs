@@ -44,9 +44,10 @@ impl LidarUnit {
         for i in &scan_modes {
             println!("scan mode: id:{}, name:{}, us per sample: {}, max dist: {}", i.id, i.name, i.us_per_sample, i.max_distance)
         }
+        dev.core_reset().expect("bad core reset");
         //we want the lowest us per sample
         dev.start_scan_with_options(&ScanOptions::force_scan_with_mode(scan_modes.first().unwrap().id))?;
-        let _ = dev.grab_scan_point();//Ignore result
+        //let _ = dev.grab_scan_point();//Ignore result
         Ok(dev)
     }
     pub(crate) fn new() -> LidarUnit {
