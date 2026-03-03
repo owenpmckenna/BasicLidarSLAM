@@ -51,7 +51,7 @@ impl LidarUnit {
         println!("scan mode: {:?}", out.expect("could not start scan with options"));
         //let _ = dev.grab_scan_point();//Ignore result*/
         dev.start_scan_with_options(&ScanOptions::force_scan())?;
-        dev.grab_scan_point();//Ignore result
+        dev.grab_scan_with_timeout(Duration::from_secs(10)).expect("failed to read first scan");//Ignore result
         Ok(dev)
     }
     pub(crate) fn new() -> LidarUnit {
