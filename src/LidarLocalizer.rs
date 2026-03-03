@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::f32::consts::PI;
 use serde::{Deserialize, Serialize};
 use tokio::net::unix::pid_t;
+use crate::{cartesian_to_polar_radians, polar_to_cartesian_radians};
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
@@ -192,7 +193,7 @@ impl InstantLine {
         Some(InstantLine {points: p.to_vec(), known_avg_slope: avg_deg_rad })
     }
     const WITHIN_DEGREES: f32 = 12.5;
-    const EQU_WITHIN_DEGREES: f32 = 15.0;
+    const EQU_WITHIN_DEGREES: f32 = 10.0;
     const POINT_DISTANCE: f32 = 0.01;//10 cm. dist between the closest point in list and our new point
     const STRAIGHTNESS: f32 = 0.005;//5 cm. this is now far new points can be from the line between the first and last point
     fn near_far_points_dist(points: &[(f32, f32)], new_point: (f32, f32)) -> ((f32, f32), (f32, f32), f32, f32){
@@ -222,6 +223,17 @@ impl InstantLine {
             //self.known_avg_slope = self.self_avg_slope();//TODO remove
         }
         to_add
+    }
+    fn combine(&mut self, other: &InstantLine) {
+        other.points.iter().for_each(|it| self.points.push(*it));
+        let mut temp: Vec<(f32, f32)> = self.points.iter()
+            .map(|it| cartesian_to_polar_radians(it.0, it.1))
+            .collect();
+        //so we compare by theta, to get them in order for slope
+        temp.sort_unstable_by(|(a,b), (c,d)| b.total_cmp(d));
+        self.points.copy_from_slice(&(temp.into_iter().map(|(radius, theta)| polar_to_cartesian_radians(radius, theta))
+            .collect::<Vec<(f32, f32)>>()));
+        self.known_avg_slope = self.self_avg_slope();
     }
 }
 pub struct InstantLidarLocalizer {
@@ -292,6 +304,7 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                     if !InstantLine::best(&self[x], &self[y]) {
                         self.swap(x, y);
                     }
+                    self[x].combine(&self[y]);
                     self.remove(y);
                 } else {
                     y += 1;

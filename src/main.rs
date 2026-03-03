@@ -4,6 +4,7 @@ mod Webserver;
 mod LidarLocalizer;
 
 extern crate serialport;
+extern crate core;
 
 use std::cmp::max;
 use std::error::Error;
@@ -38,6 +39,11 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let x = radius * theta_radians.cos();
     let y = radius * theta_radians.sin();
     (x, y)
+}
+fn cartesian_to_polar_radians(x: f32, y: f32) -> (f32, f32) {//no idea if this is right, fyi
+    let radius = (x * x + y * y).sqrt();
+    let theta = y.atan2(x); // returns angle in radians
+    (radius, theta)
 }
 fn main() {
     env_logger::init();
