@@ -11,7 +11,7 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let y = radius * theta_radians.sin();
     (x, y)
 }
-pub struct LidarUnit {
+pub(crate) struct LidarUnit {
     lidar_dev: Option<RplidarDevice<dyn SerialPort>>,
     data: [(f32, f32); DATA_LEN],
     data_index: usize,
@@ -39,7 +39,7 @@ impl LidarUnit {
             serial_port,
         );
         let mut dev = RplidarDevice::new(channel);
-        let mut scan_modes = dev.get_all_supported_scan_modes().expect("could not get scan modes");
+        /*let mut scan_modes = dev.get_all_supported_scan_modes().expect("could not get scan modes");
         scan_modes.sort_by_key(|it| (it.us_per_sample * 1000.0) as u128);
         for i in &scan_modes {
             println!("scan mode: id:{}, name:{}, us per sample: {}, max dist: {}", i.id, i.name, i.us_per_sample, i.max_distance)
@@ -49,7 +49,9 @@ impl LidarUnit {
         dev.start_motor().expect("motor not started");
         let out = dev.start_scan_with_options(&ScanOptions::with_mode(scan_modes.first().unwrap().id));
         println!("scan mode: {:?}", out.expect("could not start scan with options"));
-        //let _ = dev.grab_scan_point();//Ignore result
+        //let _ = dev.grab_scan_point();//Ignore result*/
+        dev.start_scan_with_options(&ScanOptions::force_scan())?;
+        dev.grab_scan_point();//Ignore result
         Ok(dev)
     }
     pub(crate) fn new() -> LidarUnit {
