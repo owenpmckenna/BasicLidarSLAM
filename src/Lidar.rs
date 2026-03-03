@@ -46,7 +46,9 @@ impl LidarUnit {
         }
         dev.core_reset().expect("bad core reset");
         //we want the lowest us per sample
-        dev.start_scan_with_options(&ScanOptions::force_scan_with_mode(scan_modes.first().unwrap().id))?;
+        dev.start_motor().expect("motor not started");
+        let out = dev.start_scan_with_options(&ScanOptions::force_scan_with_mode(scan_modes.first().unwrap().id));
+        println!("scan mode: {:?}", out.expect("could not start scan with options"));
         //let _ = dev.grab_scan_point();//Ignore result
         Ok(dev)
     }
