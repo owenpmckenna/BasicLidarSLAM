@@ -266,7 +266,7 @@ impl InstantLine {
                 Self::maybe_add(p1, &mut new);
                 index1 += 1
             } else {
-                Self::maybe_add(p1, &mut new);
+                Self::maybe_add(p0, &mut new);
                 index0 += 1
             }
         }
