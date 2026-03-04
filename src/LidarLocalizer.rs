@@ -116,7 +116,15 @@ impl Reducible for InstantLine {
         if angle_comp_rad(self.known_avg_slope, other.known_avg_slope) > Self::EQU_WITHIN_DEGREES {
             return false;
         }
-        let find = self.points.iter().enumerate().find_map(|(i, it)| {
+        for x in &self.points {
+            for y in &other.points {
+                if *x == *y {
+                    return true
+                }
+            }
+        }
+        return false
+        /*let find = self.points.iter().enumerate().find_map(|(i, it)| {
             let x = other.points.iter().enumerate().find(|(_i2, it2)| it.eq(it2));
             match x {
                 None => { None }
@@ -126,7 +134,7 @@ impl Reducible for InstantLine {
         match find {
             None => { false }
             Some(_) => { true },
-        }
+        }*/
     }
 }
 impl InstantLine {
@@ -340,8 +348,9 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                     if !InstantLine::best(&self[x], &self[y]) {
                         self.swap(x, y);
                     }
-                    let old = self.pop().unwrap();
-                    //self[x].combine(old);
+                    let old = self.remove(y);
+                    //let old = self.pop().unwrap();
+                    self[x].combine(old);
                 } else {
                     y += 1;
                 }
