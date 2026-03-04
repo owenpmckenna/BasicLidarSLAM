@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tokio::net::unix::pid_t;
-use crate::{cartesian_to_polar_radians, polar_to_cartesian_radians};
+use crate::{cartesian_to_polar_radians, cartesian_to_polar_radians_theta, polar_to_cartesian_radians};
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
@@ -250,28 +250,20 @@ impl InstantLine {
                 index0 += 1;
                 continue
             }
-            let o0 = self.points[index0];
-            let o1 = other.points[index1];
-            let o0 = cartesian_to_polar_radians(o0.0, o0.1);
-            let o1 = cartesian_to_polar_radians(o1.0, o1.1);
-            if o0.1 > o1.1 {
-                Self::maybe_add(other.points[index1], &mut new);
+            let p0 = self.points[index0];
+            let p1 = other.points[index1];
+            let o0 = cartesian_to_polar_radians_theta(p0.0, p0.1);
+            let o1 = cartesian_to_polar_radians_theta(p1.0, p1.1);
+            if o0 > o1 {
+                Self::maybe_add(p1, &mut new);
                 index1 += 1
             } else {
-                Self::maybe_add(self.points[index0], &mut new);
+                Self::maybe_add(p1, &mut new);
                 index0 += 1
             }
         }
+        self.points = new;
         self.known_avg_slope = self.self_avg_slope();
-        /*other.points.into_iter().for_each(|it| self.points.push(it));
-        let mut temp: Vec<(f32, f32)> = self.points.iter()
-            .map(|it| cartesian_to_polar_radians(it.0, it.1))
-            .collect();
-        //so we compare by theta, to get them in order for slope
-        temp.sort_unstable_by(|(a,b), (c,d)| b.total_cmp(d));
-        self.points.copy_from_slice(&(temp.into_iter().map(|(radius, theta)| polar_to_cartesian_radians(radius, theta))
-            .collect::<Vec<(f32, f32)>>()));
-        self.known_avg_slope = self.self_avg_slope();*/
     }
 }
 pub struct InstantLidarLocalizer {
@@ -325,8 +317,9 @@ impl InstantLidarLocalizer {
         //lines = lines.into_iter().filter(|it| {
         //    it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
         //}).collect();
+        let len = lines.len();
         lines.reduce();
-        println!("reducing done after {} ms", time0.elapsed().as_millis());
+        println!("reducing on {} lines done after {} ms (to {} lines)", len, time0.elapsed().as_millis(), lines.len());
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
@@ -347,7 +340,7 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                     if !InstantLine::best(&self[x], &self[y]) {
                         self.swap(x, y);
                     }
-                    let old = self.remove(y);
+                    let old = self.pop().unwrap();
                     self[x].combine(old);
                 } else {
                     y += 1;

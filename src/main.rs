@@ -47,6 +47,11 @@ fn cartesian_to_polar_radians(x: f32, y: f32) -> (f32, f32) {//no idea if this i
     let theta = y.atan2(x); // returns angle in radians
     (radius, theta)
 }
+#[inline(always)]
+fn cartesian_to_polar_radians_theta(x: f32, y: f32) -> f32 {//no idea if this is right, fyi
+    let theta = y.atan2(x); // returns angle in radians
+    theta
+}
 fn main() {
     env_logger::init();
     let mut ld = LidarUnit::new().expect("could not get lidar unit");
