@@ -14,6 +14,7 @@ use std::process::exit;
 use std::thread;
 use std::thread::{sleep, Thread};
 use std::time::{Duration, Instant};
+use axum::response::IntoResponse;
 use crossbeam_channel::unbounded;
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
@@ -24,6 +25,7 @@ use plotters::style::{Color, GREEN, WHITE};
 use roboclaw::Roboclaw;
 use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
 use rppal::gpio::Gpio;
+use serde::de::value::F32Deserializer;
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 use termion::event::Key;
 use termion::input::TermRead;
@@ -49,6 +51,7 @@ fn main() {
     env_logger::init();
     let mut ld = LidarUnit::new().expect("could not get lidar unit");
     println!("created lidar unit!");
+    let (tx_points, rx_points) = unbounded::<Vec<(f32, f32)>>();
     let (tx, rx) = unbounded::<SendData>();
     let rt = Runtime::new().unwrap();
     rt.spawn(async {
@@ -56,7 +59,6 @@ fn main() {
         webserver.serve().await;
     });
     let t = thread::spawn(move || {
-        let mut localizer = LidarLocalizer::LidarLocalizer::new();
         println!("running!");
         let mut last_grab_time = Instant::now();
         loop {
@@ -64,21 +66,33 @@ fn main() {
             println!("grabbing points... elapsed: {}", time.subsec_millis() as u64 + time.as_secs() * 1000);
             last_grab_time = Instant::now();
             let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
-            points0.sort_by(|a, b| a.1.total_cmp(&b.1));//this shouldn't be needed but this isn't python so we can afford it
+            points0.sort_by(|a, b| a.1.total_cmp(&b.1)); //this shouldn't be needed but this isn't python so we can afford it
             let points: Vec<(f32, f32)> = points0.iter()
                 // / 6.0 * 400.0
                 .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
                 .collect();
+            tx_points.send(points).unwrap();
+        }
+    });
+    let t2 = thread::spawn(move || {
+        let mut localizer = LidarLocalizer::LidarLocalizer::new();
+        loop {
+            let points = rx_points.recv().unwrap();
+            println!("got {} points in t2", points.len());
+            if points.len() < 20 {
+                continue;
+            }
             let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
-            let i_localizer = InstantLidarLocalizer::new((0.0,0.0), 1000.0, &points);
+            let i_localizer = InstantLidarLocalizer::new((0.0, 0.0), 1000.0, &points);
             localizer.process(i_localizer);
             //println!("got {} points!", points.len());
-            let to_send = SendData {data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0)};
+            let to_send = SendData { data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0) };
             tx.send(to_send).unwrap();
             //sleep(Duration::from_millis(50));
         }
     });
     t.join().expect("");
+    t2.join().expect("");
     /*let mut dt = Drivetrain::Drivetrain::new();
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
