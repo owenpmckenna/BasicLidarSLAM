@@ -12,7 +12,7 @@ fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     (x, y)
 }
 pub(crate) struct LidarUnit {
-    lidar_dev: Option<RplidarDevice<dyn SerialPort>>,
+    lidar_dev: RplidarDevice<dyn SerialPort>,
     data: [(f32, f32); DATA_LEN],
     data_index: usize,
     fatals: usize,
@@ -40,7 +40,7 @@ impl LidarUnit {
             serial_port,
         );
         let mut dev = RplidarDevice::new(channel);
-        for i in 0..10 {
+        for i in 0..5 {
             let data = dev.get_device_info().expect("could not read device info");
             println!("reading data: i{}, data:{:?}", i, data);
         }
@@ -56,22 +56,21 @@ impl LidarUnit {
         println!("scan mode: {:?}", out.expect("could not start scan with options"));
         //let _ = dev.grab_scan_point();//Ignore result*/
         dev.start_scan_with_options(&ScanOptions::force_scan())?;
-        dev.grab_scan_with_timeout(Duration::from_secs(10)).expect("failed to read first scan");//Ignore result
+        let first_scan = dev.grab_scan_with_timeout(Duration::from_secs(10)).expect("failed to read first scan");//Ignore result
+        println!("first scan finished, len{}", first_scan.len());
+        let second_scan = dev.grab_scan_with_timeout(Duration::from_secs(10)).expect("failed to read second scan");//Ignore result
+        println!("second scan finished, len{}", second_scan.len());
         Ok(dev)
     }
-    pub(crate) fn new() -> LidarUnit {
+    pub(crate) fn new() -> Result<LidarUnit, Box<dyn Error>> {
         let rplidar = match Self::get_rplidar() {
-            Ok(it) => {Some(it)}
-            Err(err) => {println!("Error: {}", err); None}
+            Ok(it) => {it}
+            Err(err) => {println!("Error: {}", err); return Err(err)}
         };
-        LidarUnit {lidar_dev: rplidar, data: [(0f32, 0f32); DATA_LEN], data_index: 0, fatals: 0, timeouts: 0 }
+        Ok(LidarUnit {lidar_dev: rplidar, data: [(0f32, 0f32); DATA_LEN], data_index: 0, fatals: 0, timeouts: 0 })
     }
     fn regen_connection(&mut self) -> Option<()> {
-        {
-            //attempt to force disconnect
-            self.lidar_dev = None
-        }
-        self.lidar_dev = Some(match Self::get_rplidar() {
+        self.lidar_dev = match Self::get_rplidar() {
             Ok(it) => {it}
             Err(err) => {
                 println!("Error (regen connection): {}", err);
@@ -79,13 +78,14 @@ impl LidarUnit {
                 if self.fatals > FATALS_MAX {
                     return None
                 }
-                return self.regen_connection()
+                self.regen_connection();
+                self.lidar_dev
             }
-        });
+        };
         Some(())
     }
     fn grab_single_point(&mut self) -> Result<(f32, f32), ()> {
-        match self.lidar_dev.as_mut().unwrap().grab_scan_point() {
+        match self.lidar_dev.grab_scan_point() {
             Ok(it) => {Ok(polar_to_cartesian_radians(it.distance(), it.angle()))}
             Err(it) => {
                 if let Some(RposError::OperationTimeout) = it.downcast_ref::<RposError>() {
@@ -119,7 +119,7 @@ impl LidarUnit {
         Ok(())
     }
     pub fn grab_points(&mut self) -> Result<Vec<(f32, f32)>, ()> {
-        match self.lidar_dev.as_mut().unwrap().grab_scan_with_timeout(Duration::from_secs(15)) {
+        match self.lidar_dev.grab_scan_with_timeout(Duration::from_secs(15)) {
             Ok(it) => {
                 Ok(it.iter().filter(|it| {/*println!("ang:{}, dist:{}", it.angle(), it.distance());*/ it.is_valid()}).map(|it| {(it.distance(), it.angle())}).collect())
             }

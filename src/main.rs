@@ -13,7 +13,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::exit;
 use std::thread;
 use std::thread::{sleep, Thread};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use crossbeam_channel::unbounded;
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
@@ -48,6 +48,7 @@ fn cartesian_to_polar_radians(x: f32, y: f32) -> (f32, f32) {//no idea if this i
 fn main() {
     env_logger::init();
     let mut ld = LidarUnit::new();
+    println!("created lidar unit!");
     let (tx, rx) = unbounded::<SendData>();
     let rt = Runtime::new().unwrap();
     rt.spawn(async {
@@ -56,7 +57,12 @@ fn main() {
     });
     let t = thread::spawn(move || {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
+        println!("running!");
+        let mut last_grab_time = Instant::now();
         loop {
+            let time = last_grab_time.elapsed();
+            println!("grabbing points... elapsed: {}", time.subsec_millis() + time.as_secs() * 1000);
+            last_grab_time = Instant::now();
             let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
             points0.sort_by(|a, b| a.1.total_cmp(&b.1));//this shouldn't be needed but this isn't python so we can afford it
             let points: Vec<(f32, f32)> = points0.iter()
