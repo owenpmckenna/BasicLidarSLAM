@@ -113,7 +113,7 @@ impl Reducible for InstantLine {
         }
     }
     fn are_equivalent(&self, other: &InstantLine) -> bool {
-        if angle_comp_rad(self.known_avg_slope, other.known_avg_slope) > Self::EQU_WITHIN_DEGREES {
+        if angle_comp_rad(self.known_avg_slope, other.known_avg_slope) > Self::EQU_WITHIN_DEGREES.to_radians() {
             return false;
         }
         for x in &self.points {
