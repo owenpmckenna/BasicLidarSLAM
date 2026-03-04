@@ -47,7 +47,7 @@ fn cartesian_to_polar_radians(x: f32, y: f32) -> (f32, f32) {//no idea if this i
 }
 fn main() {
     env_logger::init();
-    let mut ld = LidarUnit::new();
+    let mut ld = LidarUnit::new().expect("could not get lidar unit");
     println!("created lidar unit!");
     let (tx, rx) = unbounded::<SendData>();
     let rt = Runtime::new().unwrap();
@@ -61,7 +61,7 @@ fn main() {
         let mut last_grab_time = Instant::now();
         loop {
             let time = last_grab_time.elapsed();
-            println!("grabbing points... elapsed: {}", time.subsec_millis() + time.as_secs() * 1000);
+            println!("grabbing points... elapsed: {}", time.subsec_millis() as u64 + time.as_secs() * 1000);
             last_grab_time = Instant::now();
             let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
             points0.sort_by(|a, b| a.1.total_cmp(&b.1));//this shouldn't be needed but this isn't python so we can afford it

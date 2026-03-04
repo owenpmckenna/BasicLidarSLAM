@@ -70,8 +70,10 @@ impl LidarUnit {
         Ok(LidarUnit {lidar_dev: rplidar, data: [(0f32, 0f32); DATA_LEN], data_index: 0, fatals: 0, timeouts: 0 })
     }
     fn regen_connection(&mut self) -> Option<()> {
-        self.lidar_dev = match Self::get_rplidar() {
-            Ok(it) => {it}
+        match Self::get_rplidar() {
+            Ok(it) => {
+                self.lidar_dev = it
+            }
             Err(err) => {
                 println!("Error (regen connection): {}", err);
                 self.fatals += 1;
@@ -79,7 +81,6 @@ impl LidarUnit {
                     return None
                 }
                 self.regen_connection();
-                self.lidar_dev
             }
         };
         Some(())
