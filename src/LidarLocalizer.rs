@@ -341,7 +341,7 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                         self.swap(x, y);
                     }
                     let old = self.pop().unwrap();
-                    self[x].combine(old);
+                    //self[x].combine(old);
                 } else {
                     y += 1;
                 }
