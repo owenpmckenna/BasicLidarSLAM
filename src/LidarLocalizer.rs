@@ -225,8 +225,43 @@ impl InstantLine {
         }
         to_add
     }
+    fn maybe_add(point: (f32, f32), vec: &mut Vec<(f32, f32)>) {
+        match vec.last() {
+            None => {vec.push(point)}
+            Some(it) => { if *it != point {
+                vec.push(*it);
+            }
+            }
+        }
+    }
     fn combine(&mut self, other: InstantLine) {
-        other.points.into_iter().for_each(|it| self.points.push(it));
+        let mut new: Vec<(f32, f32)> = Vec::with_capacity(self.points.len() + other.points.len());
+        //assume both sorted :sob:
+        let mut index0 = 0usize;
+        let mut index1 = 0usize;
+        while index0 < self.points.len() && index1 < other.points.len() {
+            if index0 == self.points.len() {
+                Self::maybe_add(other.points[index1], &mut new);
+                index1 += 1
+            }
+            if index1 == other.points.len() {
+                Self::maybe_add(self.points[index0], &mut new);
+                index0 += 1
+            }
+            let o0 = self.points[index0];
+            let o1 = other.points[index1];
+            let o0 = cartesian_to_polar_radians(o0.0, o0.1);
+            let o1 = cartesian_to_polar_radians(o1.0, o1.1);
+            if o0.1 > o1.1 {
+                Self::maybe_add(other.points[index1], &mut new);
+                index1 += 1
+            } else {
+                Self::maybe_add(self.points[index0], &mut new);
+                index0 += 1
+            }
+        }
+        self.known_avg_slope = self.self_avg_slope();
+        /*other.points.into_iter().for_each(|it| self.points.push(it));
         let mut temp: Vec<(f32, f32)> = self.points.iter()
             .map(|it| cartesian_to_polar_radians(it.0, it.1))
             .collect();
@@ -234,7 +269,7 @@ impl InstantLine {
         temp.sort_unstable_by(|(a,b), (c,d)| b.total_cmp(d));
         self.points.copy_from_slice(&(temp.into_iter().map(|(radius, theta)| polar_to_cartesian_radians(radius, theta))
             .collect::<Vec<(f32, f32)>>()));
-        self.known_avg_slope = self.self_avg_slope();
+        self.known_avg_slope = self.self_avg_slope();*/
     }
 }
 pub struct InstantLidarLocalizer {
