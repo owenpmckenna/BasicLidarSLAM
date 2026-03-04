@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::f32::consts::PI;
+use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tokio::net::unix::pid_t;
 use crate::{cartesian_to_polar_radians, polar_to_cartesian_radians};
@@ -243,6 +244,8 @@ pub struct InstantLidarLocalizer {
 impl InstantLidarLocalizer {
     //velocity is x,y (estimate) current speed in units per second. time is millis since scan started
     pub fn new(vel: (f32, f32), time: f32, points: &Vec<(f32, f32)>) -> InstantLidarLocalizer {
+        let time0 = Instant::now();
+        println!("running calculations on {} points!", points.len());
         if points.len() < 10 {
             //empty
             return InstantLidarLocalizer { altered_point_list: vec![], lines: vec![] }
@@ -257,6 +260,7 @@ impl InstantLidarLocalizer {
             .collect();
         let mut i = 2usize;
         let mut lines = Vec::new();
+        println!("initial proc took {} ms", time0.elapsed().as_millis());
         while i < altered_points.len() - InstantLine::INIT_LINE_POINTS {
             let line = InstantLine::is_line(altered_points[i..i + InstantLine::INIT_LINE_POINTS].try_into().unwrap()); //test if consecutive points are in a line
             match line {
@@ -278,12 +282,14 @@ impl InstantLidarLocalizer {
             }
             i += 1;
         }
+        println!("lines done after {} ms", time0.elapsed().as_millis());
         //should sort in ascending order of distances
         //lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
         //lines = lines.into_iter().filter(|it| {
         //    it.points.len() > (InstantLine::INIT_LINE_POINTS as f64 * 1.25) as usize
         //}).collect();
         lines.reduce();
+        println!("reducing done after {} ms", time0.elapsed().as_millis());
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
