@@ -239,14 +239,16 @@ impl InstantLine {
         //assume both sorted :sob:
         let mut index0 = 0usize;
         let mut index1 = 0usize;
-        while index0 < self.points.len() && index1 < other.points.len() {
+        while index0 < self.points.len() || index1 < other.points.len() {
             if index0 == self.points.len() {
                 Self::maybe_add(other.points[index1], &mut new);
-                index1 += 1
+                index1 += 1;
+                continue
             }
             if index1 == other.points.len() {
                 Self::maybe_add(self.points[index0], &mut new);
-                index0 += 1
+                index0 += 1;
+                continue
             }
             let o0 = self.points[index0];
             let o1 = other.points[index1];
