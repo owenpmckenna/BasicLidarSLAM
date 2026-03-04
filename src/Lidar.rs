@@ -28,17 +28,22 @@ impl LidarUnit {
             .data_bits(DataBits::Eight)
             .flow_control(FlowControl::None)
             .parity(Parity::None)
+            .dtr_on_open(false)
             .timeout(Duration::from_millis(1000))
             .open().unwrap();
         //let mut serial_port = serialport::new("/dev/ttyUSB0", &s)?;
-        serial_port
+        /*serial_port
             .write_data_terminal_ready(false)
-            .expect("failed to clear DTR");
+            .expect("failed to clear DTR");*/
         let channel = Channel::<RplidarHostProtocol, dyn SerialPort>::new(
             RplidarHostProtocol::new(),
             serial_port,
         );
         let mut dev = RplidarDevice::new(channel);
+        for i in 0..10 {
+            let data = dev.get_device_info().expect("could not read device info");
+            println!("reading data: i{}, data:{:?}", i, data);
+        }
         /*let mut scan_modes = dev.get_all_supported_scan_modes().expect("could not get scan modes");
         scan_modes.sort_by_key(|it| (it.us_per_sample * 1000.0) as u128);
         for i in &scan_modes {
