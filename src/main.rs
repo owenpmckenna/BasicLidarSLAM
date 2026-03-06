@@ -11,6 +11,7 @@ use std::error::Error;
 use std::io::{stdin, stdout, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::exit;
+use std::sync::Arc;
 use std::thread;
 use std::thread::{sleep, Thread};
 use std::time::{Duration, Instant};
@@ -51,6 +52,9 @@ fn main() {
     let mut ld = LidarUnit::new().expect("could not get lidar unit");
     println!("created lidar unit!");
     let (tx_points, rx_points) = unbounded::<Vec<(f32, f32)>>();
+    let (tx_lines, rx_lines) = unbounded::<(Vec<SmallData>, InstantLidarLocalizer)>();
+    let rx_points_arc = Arc::new(rx_points);
+    let tx_lines_arc = Arc::new(tx_lines);
     let (tx, rx) = unbounded::<SendData>();
     let rt = Runtime::new().unwrap();
     rt.spawn(async {
@@ -73,17 +77,27 @@ fn main() {
             tx_points.send(points).unwrap();
         }
     });
+    for i in 0..3 {
+        let rx_points_arc = rx_points_arc.clone();
+        let tx_lines_arc = tx_lines_arc.clone();
+        thread::spawn(move || {
+            loop {
+                let points = rx_points_arc.recv().unwrap();
+                println!("got {} points in t2", points.len());
+                if points.len() < 20 {
+                    continue;
+                }
+                let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect::<Vec<SmallData>>();
+                let i_localizer = InstantLidarLocalizer::new((0.0, 0.0), 1000.0, &points);
+                tx_lines_arc.send((data, i_localizer)).unwrap();
+            }
+        });
+    }
     let t2 = thread::spawn(move || {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
-            let points = rx_points.recv().unwrap();
-            println!("got {} points in t2", points.len());
-            if points.len() < 20 {
-                continue;
-            }
-            let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect();
-            let i_localizer = InstantLidarLocalizer::new((0.0, 0.0), 1000.0, &points);
-            localizer.process(i_localizer);
+            let (data, ill) = rx_lines.recv().unwrap();
+            localizer.process(ill);
             //println!("got {} points!", points.len());
             let to_send = SendData { data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0) };
             tx.send(to_send).unwrap();
