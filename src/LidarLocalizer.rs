@@ -319,7 +319,8 @@ impl InstantLidarLocalizer {
             }
             i += 1;
         }
-        println!("lines done after {} ms", time0.elapsed().as_millis());
+        let count = lines.iter().filter(|x| x.points.len() == 0).count();
+        println!("lines done after {} ms. zeros: {}", time0.elapsed().as_millis(), count);
         //should sort in ascending order of distances
         //lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
         //lines = lines.into_iter().filter(|it| {
@@ -327,7 +328,8 @@ impl InstantLidarLocalizer {
         //}).collect();
         let len = lines.len();
         lines.reduce();
-        println!("reducing on {} lines done after {} ms (to {} lines)", len, time0.elapsed().as_millis(), lines.len());
+        let count = lines.iter().filter(|x| x.points.len() == 0).count();
+        println!("reducing on {} lines done after {} ms (to {} lines), zeros: {}", len, time0.elapsed().as_millis(), lines.len(), count);
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
@@ -349,7 +351,6 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                         self.swap(x, y);
                     }
                     let old = self.remove(y);
-                    //let old = self.pop().unwrap();
                     self[x].combine(old);
                 } else {
                     y += 1;
