@@ -156,6 +156,11 @@ impl InstantLine {
         let mid = self.mid_point();
         let slope = slope(self.points[0], *self.points.last().unwrap());
         let length = dist(self.points[0], *self.points.last().unwrap());
+        if length == 0.0 {
+            println!("length 0! p0: {:?}, last: {:?} --- len:{}", self.points[0], self.points.last().unwrap(), self.points.len());
+            println!("points! {:?}", self.points);
+            panic!("ending...");
+        }
         Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
     }
     fn avg_point_dist_from_center(&self) -> f32 {
