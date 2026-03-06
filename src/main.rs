@@ -16,12 +16,6 @@ use std::thread::{sleep, Thread};
 use std::time::{Duration, Instant};
 use axum::response::IntoResponse;
 use crossbeam_channel::unbounded;
-use plotters::backend::BitMapBackend;
-use plotters::chart::ChartBuilder;
-use plotters::coord::Shift;
-use plotters::drawing::{DrawingArea, IntoDrawingArea};
-use plotters::element::Circle;
-use plotters::style::{Color, GREEN, WHITE};
 use roboclaw::Roboclaw;
 use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
 use rppal::gpio::Gpio;
@@ -177,35 +171,5 @@ fn main() {
 
     //println!("Grab one point! {:?}", rplidar.grab_scan_point().unwrap())
     //present(&root, &data);
-}
-fn present(root: &DrawingArea<BitMapBackend, Shift>, data: &[(f32, f32); Lidar::DATA_LEN]) {
-    root.fill(&WHITE).expect("Fill failed");
-    let mut mx: f32 = 0.0;
-    let mut my: f32 = 0.0;
-    for (x,y) in data {
-        mx = mx.max(x.abs());
-        my = my.max(y.abs());
-    }
-    //let (xmin, xmax) = data.iter().map(|(x, _)| *x).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
-    //let (ymin, ymax) = data.iter().map(|(_, y)| *y).fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| (min.min(v), max.max(v)));
-    let (xmin, xmax) = (-mx, mx);
-    let (ymin, ymax) = (-my, my);
-    let mut scatter_ctx = ChartBuilder::on(&root)
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(xmin..xmax, ymin..ymax)
-        .unwrap();
-    scatter_ctx
-        .configure_mesh()
-        .disable_x_mesh()
-        .disable_y_mesh()
-        .draw()
-        .unwrap();
-    scatter_ctx.draw_series(
-        data
-            .iter()
-            .map(|(x, y)| Circle::new((*x, *y), 2, GREEN.filled())),
-    ).unwrap();
-    root.present().expect("Unable to write result to file");
 }
 //Scan types: Standard, Express, Boost, Sensitivity, Stability
