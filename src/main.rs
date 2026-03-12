@@ -1,34 +1,24 @@
+extern crate core;
+extern crate serialport;
 mod Lidar;
 mod Drivetrain;
 mod Webserver;
 mod LidarLocalizer;
 
-extern crate serialport;
-extern crate core;
-
-use std::cmp::max;
-use std::error::Error;
-use std::io::{stdin, stdout, Write};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::process::exit;
-use std::sync::Arc;
-use std::thread;
-use std::thread::{sleep, Thread};
-use std::time::{Duration, Instant};
+use crate::Lidar::LidarUnit;
+use crate::LidarLocalizer::InstantLidarLocalizer;
+use crate::Webserver::{SendData, SmallData};
 use axum::response::IntoResponse;
 use crossbeam_channel::unbounded;
-use roboclaw::Roboclaw;
-use rplidar_drv::{Channel, RplidarHostProtocol, RposError, ScanOptions};
-use rppal::gpio::Gpio;
-use serde::de::value::F32Deserializer;
-use serialport::{DataBits, FlowControl, Parity, StopBits};
-use termion::event::Key;
+use std::error::Error;
+use std::io::Write;
+use std::ops::Add;
+use std::sync::Arc;
+use std::thread;
+use std::time::Instant;
 use termion::input::TermRead;
-use termion::raw::{IntoRawMode, RawTerminal};
+use termion::raw::IntoRawMode;
 use tokio::runtime::Runtime;
-use crate::Lidar::LidarUnit;
-use crate::LidarLocalizer::{InstantLidarLocalizer, Line};
-use crate::Webserver::{SendData, SmallData};
 
 //use rplidar_drv::{ScanMode, ScanOptions};
 //use serial2::SerialPort;
@@ -97,9 +87,12 @@ fn main() {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
             let (data, ill) = rx_lines.recv().unwrap();
-            localizer.process(ill);
+            let mut old_lines = localizer.process(ill);
+            for x in &mut old_lines {
+                x.update_data(|x| x / 6.0 * 400.0);
+            }
             //println!("got {} points!", points.len());
-            let to_send = SendData { data, lines: localizer.clone_lines(|x| x / 6.0 * 400.0) };
+            let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(|x| x / 6.0 * 400.0), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };
             tx.send(to_send).unwrap();
             //sleep(Duration::from_millis(50));
         }
@@ -187,3 +180,9 @@ fn main() {
     //present(&root, &data);
 }
 //Scan types: Standard, Express, Boost, Sensitivity, Stability
+pub fn add(m: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
+    (m.0 + rhs.0, m.1 + rhs.1)
+}
+pub fn sub(m: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
+    (m.0 - rhs.0, m.1 - rhs.1)
+}

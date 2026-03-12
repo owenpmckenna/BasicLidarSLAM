@@ -98,6 +98,7 @@ socket.addEventListener("message", (event) => {
 	    list[number % max_points] = ({x: msg.x, y: msg.y});
 	    number += 1;
 	});
+	console.log("x: " + data.x + ", y: " + data.y)
 	redraw(data.lines);
 });
 

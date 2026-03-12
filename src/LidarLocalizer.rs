@@ -1,13 +1,17 @@
-use std::cmp::min;
+use crate::{add, cartesian_to_polar_radians_theta};
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
-use tokio::net::unix::pid_t;
-use crate::{cartesian_to_polar_radians, cartesian_to_polar_radians_theta, polar_to_cartesian_radians};
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
     (a-b).abs().min((2.0*PI)-((a-b).abs()))
+}
+fn dist(p0: (f32, f32), p1: (f32, f32)) -> f32 {
+    ((p0.0-p1.0).powi(2) + (p0.1-p1.1).powi(2)).sqrt()
+}
+fn angle_comp_rad_from_slope(a: f32, b: f32) -> f32 {
+    angle_comp_rad(a.atan(), b.atan())
 }
 fn angle_comp_deg(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
@@ -22,8 +26,10 @@ pub struct LidarLocalizer {
     pub heading: f32,
     pub vel: (f32, f32),
     pub ang_vel: f32,
-    pub lines: Vec<Line>
+    pub lines: Vec<Line>,
+    pub last_time: Instant
 }
+type SHIFT = (f32, Box<dyn FnOnce(Vec<InstantLine>, &mut LidarLocalizer) -> ()>);
 impl LidarLocalizer {
     pub(crate) fn new() -> LidarLocalizer {
         LidarLocalizer {//blank at start
@@ -32,27 +38,141 @@ impl LidarLocalizer {
             vel: (0.0, 0.0),
             ang_vel: 0.0,
             lines: vec![],
+            last_time: Instant::now()
         }
     }
     pub fn clone_lines(&self, func: fn(f32) -> f32) -> Vec<Line> {
         self.lines.iter().map(|it| it.clone())
             .map(|mut it| {
-                it.length = func(it.length);
-                it.mid.0 = func(it.mid.0);
-                it.mid.1 = func(it.mid.1);
-                it.p0.0 = func(it.p0.0);
-                it.p0.1 = func(it.p0.1);
-                it.p1.0 = func(it.p1.0);
-                it.p1.1 = func(it.p1.1);
+                it.update_data(func);
                 it
             })
             .collect()
     }
-    pub fn process(&mut self, instant: InstantLidarLocalizer) {
-        //TODO fully redo this method
-        self.lines.clear();
-        let mut tmp: Vec<Line> = instant.lines.into_iter().map(|x| x.into_line()).collect();
-        self.lines.append(&mut tmp);
+    const RADIANS_SLOPE_LIMIT: f32 = 10.0f32.to_radians();
+    const MOVEMENT_LIMIT: f32 = 12.0;
+    fn try_shift<'a>(&self, by: (f32, f32), lines: &Vec<InstantLine>, movement_limit: f32) -> SHIFT {
+        let shift = add(self.pos, by);
+        //index is of self.lines, 1 is index of lines, 2 is dist to corresponding self.lines line
+        let mut best_detections: Vec<(Option<usize>, f32)> = vec![(None, f32::MAX); self.lines.len()];
+        //this is a list of the indexes of the InstantLines we didn't find in the known lines
+        let mut unfound: Vec<usize> = (0..lines.len()).collect();
+        let mut score = 0.0;
+
+        for (index, detection) in lines.iter().enumerate() {
+            let rad_slope = detection.known_avg_slope;//actually radians ig
+            let midpoint = add(detection.mid_point(), shift);
+            for (test_index, known_line) in self.lines.iter()
+                .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
+                let too_far_along = dist(midpoint, known_line.mid) > known_line.length / 2.0;
+                let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
+                let too_far_away = dist > movement_limit;
+                if dist < best_detections[test_index].1  && !too_far_along && !too_far_away {
+                    best_detections[test_index].0 = Some(index);
+                    best_detections[test_index].1 = dist;
+                }
+            }
+        }
+        let mut lines_found = 0f32;
+        for (line, dist) in &best_detections {
+            match line {
+                None => {}
+                Some(index) => {
+                    score += dist;
+                    lines_found += 1.0;
+                    let index = unfound.iter().position(|it| *it == *index);
+                    match index {
+                        None => {}
+                        Some(it) => {unfound.remove(it);}
+                    };
+                }
+            }
+        }
+        score = score / lines_found.powf(1.2);//favor ones with many detections
+        if lines_found < 2.0 {
+            //has to be at least two otherwise it will make absolutely no sense
+            //maybe increase this later idk?
+            score = f32::MAX;
+        }
+
+        let exe = Box::new(move |lines: Vec<InstantLine>, it: &mut LidarLocalizer| {
+            it.pos = add(it.pos, by);
+            for (norm_index, (new_line_index, dist)) in best_detections.into_iter().enumerate() {
+                it.lines[norm_index].detection_tries += 1;
+                match new_line_index {
+                    None => {}
+                    Some(id) => {
+                        it.lines[norm_index].detection_strength += 1;
+                    }
+                }
+            }
+
+            //type gymnastics to put every ILine whose id is in unfound
+            lines.into_iter().enumerate()
+                .filter(|(x, y)| unfound.iter().find(|it| **it == *x).is_some())
+                .for_each(|(pos, item)| it.lines.push(item.into_line()));
+            //println!("{:?}", best_detections);
+            //println!("{:?}", unfound);
+            let mut i = 0;
+            while i < it.lines.len() {
+                let line = &it.lines[i];
+                if line.detection_tries == 3 && line.detection_strength < 3 {
+                    it.lines.remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+            it.last_time = Instant::now();
+        });
+        (score, exe)
+    }
+    fn test_region<'a>(&mut self, center: (f32, f32), dist: f32, steps: isize, lines: &Vec<InstantLine>, movement_limit: f32) -> Option<((f32, f32), SHIFT)> {
+        let mut pos = (0.0, 0.0);
+        let mut lowest: SHIFT = (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}));
+        let step = dist / (steps as f32);
+        for x in -steps..=steps {
+            let x = x as f32 * step;
+            for y in -steps..=steps {
+                let y = y as f32 * step;
+                let test = self.try_shift(add((x, y), center), lines, movement_limit);
+                if test.0 < lowest.0 {
+                    lowest = test;
+                    pos = (x, y);
+                }
+            }
+        }
+        if lowest.0 == f32::MAX {
+            None
+        } else {
+            Some((pos, lowest))
+        }
+    }
+    ///returns the old data, updates everything internally
+    pub fn process(&mut self, instant: InstantLidarLocalizer) -> Vec<Line> {
+        let seconds = (self.last_time.elapsed().as_millis() / 1000) as f32;
+        self.pos.0 += self.vel.0 * seconds;
+        self.pos.1 += self.vel.1 * seconds;
+        let movement_limit = Self::MOVEMENT_LIMIT * seconds;
+        let mut last_center: Option<((f32, f32), SHIFT)> = Some(((0.0, 0.0), (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}))));
+        let lines = &instant.lines;
+        for i in 0..5 {
+            match &last_center {
+                None => {}
+                Some((center, shift)) => {
+                     last_center = self.test_region(*center, 4.0 / (i as f32).powi(2), 4, lines, movement_limit);
+                }
+            }
+        }
+        let fnc = match last_center {
+            None => {self.try_shift((0.0, 0.0), lines, movement_limit).1}
+            Some(it) => {it.1.1}
+        };
+        let tmp: Vec<Line> = instant.lines.iter().map(|x| x.as_line()).collect();
+        
+        fnc(instant.lines, self);
+
+        self.last_time = Instant::now();
+        tmp
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -60,15 +180,29 @@ impl LidarLocalizer {
 pub struct Line {
     pub mid: (f32, f32),
     pub slope: f32,
+    pub slope_rad: f32,
     pub length: f32,
-    pub p0: (f32, f32),//debug values
-    pub p1: (f32, f32)
+    pub p0: (f32, f32),//debug values. start and end positions
+    pub p1: (f32, f32),
+    ///roughly, how many times this line had been detected
+    pub detection_strength: usize,
+    pub detection_tries: usize
 }
+
+impl Line {
+    pub(crate) fn update_data(&mut self, func: fn(f32) -> f32) {
+        self.length = func(self.length);
+        self.mid.0 = func(self.mid.0);
+        self.mid.1 = func(self.mid.1);
+        self.p0.0 = func(self.p0.0);
+        self.p0.1 = func(self.p0.1);
+        self.p1.0 = func(self.p1.0);
+        self.p1.1 = func(self.p1.1);
+    }
+}
+
 fn slope(p0: (f32, f32), p1: (f32, f32)) -> f32 {
     (p1.1-p0.1)/(p1.0-p0.0)
-}
-fn dist(p0: (f32, f32), p1: (f32, f32)) -> f32 {
-    ((p0.0-p1.0).powi(2) + (p0.1-p1.1).powi(2)).sqrt()
 }
 //WARNING: this code generated by chatgpt. if it starts producing insane data don't touch it.
 //TODO: replace this function I think it's fucked - Owen while trying to write his paper and explain the piece of garbage you're currently looking at
@@ -102,6 +236,7 @@ trait Reducible where Self: Sized {
 }
 struct InstantLine {
     points: Vec<(f32, f32)>,
+    ///in radians
     known_avg_slope: f32
 }
 impl Reducible for InstantLine {
@@ -152,7 +287,7 @@ impl InstantLine {
     fn dist(&self) -> f32 {
         dist(self.points[0], self.points[self.points.len()-1])
     }
-    fn into_line(self) -> Line {
+    fn as_line(&self) -> Line {
         let mid = self.mid_point();
         let slope = slope(self.points[0], *self.points.last().unwrap());
         let length = dist(self.points[0], *self.points.last().unwrap());
@@ -161,7 +296,10 @@ impl InstantLine {
             println!("points! {:?}", self.points);
             panic!("ending...");
         }
-        Line {mid, slope, length, p0: self.points[0], p1: *self.points.last().unwrap()}
+        Line {mid, slope, slope_rad: slope.atan(), length, p0: self.points[0], p1: *self.points.last().unwrap(), detection_strength: 0, detection_tries: 0}
+    }
+    fn into_line(self) -> Line {
+        self.as_line()
     }
     fn avg_point_dist_from_center(&self) -> f32 {
         let mid = self.mid_point();
@@ -281,7 +419,7 @@ impl InstantLine {
 }
 pub struct InstantLidarLocalizer {
     altered_point_list: Vec<(f32, f32)>,
-    lines: Vec<InstantLine>
+    pub lines: Vec<InstantLine>
 }
 impl InstantLidarLocalizer {
     //velocity is x,y (estimate) current speed in units per second. time is millis since scan started

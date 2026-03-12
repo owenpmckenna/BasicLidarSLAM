@@ -1,19 +1,19 @@
-use futures_util::{SinkExt, StreamExt};
-use std::sync::{Arc, Mutex};
-use axum::extract::{State, WebSocketUpgrade};
-use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
-use axum::response::{Html, IntoResponse};
-use axum::{Error, Form, Json, Router};
-use axum::body::Bytes;
-use axum::http::{HeaderMap, StatusCode};
-use axum::routing::{any, get, post};
-use tokio::net::TcpListener;
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use futures_util::stream::{SplitSink, SplitStream};
-use serde::{Deserialize, Serialize};
-use tower_http::cors::{Any, CorsLayer};
 use crate::Drivetrain::Drivetrain;
 use crate::LidarLocalizer::Line;
+use axum::body::Bytes;
+use axum::extract::ws::{Message, WebSocket};
+use axum::extract::{State, WebSocketUpgrade};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{Html, IntoResponse};
+use axum::routing::{any, post};
+use axum::{Json, Router};
+use crossbeam_channel::Receiver;
+use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 struct AppState {
@@ -23,7 +23,11 @@ struct AppState {
 #[derive(Serialize, Deserialize)]
 pub struct SendData {
     pub data: Vec<SmallData>,
-    pub lines: Vec<Line>
+    pub lines: Vec<Line>,
+    pub full_lines: Vec<Line>,
+    pub x: f32,
+    pub y: f32,
+    pub heading: f32,
 }
 #[derive(Serialize, Deserialize)]
 pub struct RecData {
@@ -78,9 +82,9 @@ impl Webserver {
     async fn data(State(state): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
         ws.on_upgrade(move |socket| Webserver::handle_socket(state, socket))
     }
-    async fn handle_socket(state: AppState, mut ws: WebSocket) {
-        let (mut sender, mut reciever) = ws.split();
-        tokio::spawn(Self::receive(state.clone(), reciever));
+    async fn handle_socket(state: AppState, ws: WebSocket) {
+        let (sender, receiver) = ws.split();
+        tokio::spawn(Self::receive(state.clone(), receiver));
         println!("received connection!");
         tokio::spawn(Self::send(state.clone(), sender));
     }

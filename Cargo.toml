@@ -9,11 +9,9 @@ termion = "4.0.5"
 rplidar_drv_rs = "0.7.0"
 serialport = "4.1.0"
 #plotters = "0.3.7"
-rppal = "0.22.1"
 roboclaw = { git = "https://github.com/ysimonson/roboclaw-rs.git", branch = "serialport"}
 env_logger = "0.10"
 axum = { version = "0.8.4", features = ['ws'] }
-axum-extra = {version = "0.10.1", features = ["typed-header"]}
 tower-http = {version = "0.6.6", features = ["cors"]}
 tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
 crossbeam-channel = "0.5.15"
