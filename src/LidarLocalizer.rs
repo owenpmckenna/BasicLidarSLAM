@@ -1,6 +1,7 @@
 use crate::{add, cartesian_to_polar_radians_theta};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
@@ -30,6 +31,10 @@ pub struct LidarLocalizer {
     pub last_time: Instant
 }
 type SHIFT = (f32, Box<dyn FnOnce(Vec<InstantLine>, &mut LidarLocalizer) -> ()>);
+static TOO_LONG_COUNT: AtomicUsize = AtomicUsize::new(0);
+static TOO_FAR_COUNT: AtomicUsize = AtomicUsize::new(0);
+static TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
+static SECOND_TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 impl LidarLocalizer {
     pub(crate) fn new() -> LidarLocalizer {
         LidarLocalizer {//blank at start
@@ -50,7 +55,7 @@ impl LidarLocalizer {
             .collect()
     }
     const RADIANS_SLOPE_LIMIT: f32 = 10.0f32.to_radians();
-    const MOVEMENT_LIMIT: f32 = 12.0;
+    const MOVEMENT_LIMIT: f32 = 22.0;
     fn try_shift<'a>(&self, by: (f32, f32), lines: &Vec<InstantLine>, movement_limit: f32) -> SHIFT {
         let shift = add(self.pos, by);
         //index is of self.lines, 1 is index of lines, 2 is dist to corresponding self.lines line
@@ -62,11 +67,19 @@ impl LidarLocalizer {
         for (index, detection) in lines.iter().enumerate() {
             let rad_slope = detection.known_avg_slope;//actually radians ig
             let midpoint = add(detection.mid_point(), shift);
+            TESTS_COUNT.fetch_add(self.lines.len(), Ordering::SeqCst);
             for (test_index, known_line) in self.lines.iter()
                 .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
+                SECOND_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                 let too_far_along = dist(midpoint, known_line.mid) > known_line.length / 2.0;
                 let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
                 let too_far_away = dist > movement_limit;
+                if too_far_along {
+                    TOO_FAR_COUNT.fetch_add(1, Ordering::SeqCst);
+                }
+                if too_far_away {
+                    TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
+                }
                 if dist < best_detections[test_index].1  && !too_far_along && !too_far_away {
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
@@ -164,7 +177,17 @@ impl LidarLocalizer {
             }
         }
         let fnc = match last_center {
-            None => {println!("could not find valid shift..."); self.try_shift((0.0, 0.0), lines, movement_limit).1}
+            None => {
+                let too_long = TOO_LONG_COUNT.load(Ordering::SeqCst);
+                let too_far =  TOO_FAR_COUNT.load(Ordering::SeqCst);
+                let tests = TESTS_COUNT.load(Ordering::SeqCst);
+                let second_tests = SECOND_TESTS_COUNT.load(Ordering::SeqCst);
+                println!("could not find valid shift... ml{}, tl{}, tf{}, tests{}, 2ndtests{}", movement_limit, too_long, too_far, tests, second_tests);
+                TOO_LONG_COUNT.store(0, Ordering::SeqCst);
+                TOO_FAR_COUNT.store(0, Ordering::SeqCst);
+                TESTS_COUNT.store(0, Ordering::SeqCst);
+                SECOND_TESTS_COUNT.store(0, Ordering::SeqCst);
+                self.try_shift((0.0, 0.0), lines, movement_limit).1}
             Some(it) => {it.1.1}
         };
         let tmp: Vec<Line> = instant.lines.iter().map(|x| x.as_line()).collect();
