@@ -56,7 +56,7 @@ fn main() {
         let mut last_grab_time = Instant::now();
         loop {
             let time = last_grab_time.elapsed();
-            println!("grabbing points... elapsed: {}", time.subsec_millis() as u64 + time.as_secs() * 1000);
+            //println!("grabbing points... elapsed: {}", time.subsec_millis() as u64 + time.as_secs() * 1000);
             last_grab_time = Instant::now();
             let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
             points0.sort_by(|a, b| a.1.total_cmp(&b.1)); //this shouldn't be needed but this isn't python so we can afford it
@@ -73,7 +73,7 @@ fn main() {
         thread::spawn(move || {
             loop {
                 let points = rx_points_arc.recv().unwrap();
-                println!("got {} points in t2", points.len());
+                //println!("got {} points in t2", points.len());
                 if points.len() < 20 {
                     continue;
                 }

@@ -149,7 +149,7 @@ impl LidarLocalizer {
     }
     ///returns the old data, updates everything internally
     pub fn process(&mut self, instant: InstantLidarLocalizer) -> Vec<Line> {
-        let seconds = (self.last_time.elapsed().as_millis() / 1000) as f32;
+        let seconds = (self.last_time.elapsed().as_millis() as f32) / 1000f32;
         self.pos.0 += self.vel.0 * seconds;
         self.pos.1 += self.vel.1 * seconds;
         let movement_limit = Self::MOVEMENT_LIMIT * seconds;
@@ -164,11 +164,11 @@ impl LidarLocalizer {
             }
         }
         let fnc = match last_center {
-            None => {self.try_shift((0.0, 0.0), lines, movement_limit).1}
+            None => {println!("could not find valid shift..."); self.try_shift((0.0, 0.0), lines, movement_limit).1}
             Some(it) => {it.1.1}
         };
         let tmp: Vec<Line> = instant.lines.iter().map(|x| x.as_line()).collect();
-        
+
         fnc(instant.lines, self);
 
         self.last_time = Instant::now();
@@ -425,7 +425,7 @@ impl InstantLidarLocalizer {
     //velocity is x,y (estimate) current speed in units per second. time is millis since scan started
     pub fn new(vel: (f32, f32), time: f32, points: &Vec<(f32, f32)>) -> InstantLidarLocalizer {
         let time0 = Instant::now();
-        println!("running calculations on {} points!", points.len());
+        //println!("running calculations on {} points!", points.len());
         if points.len() < 10 {
             //empty
             return InstantLidarLocalizer { altered_point_list: vec![], lines: vec![] }
@@ -440,7 +440,7 @@ impl InstantLidarLocalizer {
             .collect();
         let mut i = 2usize;
         let mut lines = Vec::new();
-        println!("initial proc took {} ms", time0.elapsed().as_millis());
+        //println!("initial proc took {} ms", time0.elapsed().as_millis());
         while i < altered_points.len() - InstantLine::INIT_LINE_POINTS {
             let line = InstantLine::is_line(altered_points[i..i + InstantLine::INIT_LINE_POINTS].try_into().unwrap()); //test if consecutive points are in a line
             match line {
@@ -463,7 +463,7 @@ impl InstantLidarLocalizer {
             i += 1;
         }
         let count = lines.iter().filter(|x| x.points[0] == x.points[1]).count();
-        println!("lines done after {} ms. zeros: {}", time0.elapsed().as_millis(), count);
+        //println!("lines done after {} ms. zeros: {}", time0.elapsed().as_millis(), count);
         //should sort in ascending order of distances
         //lines.sort_by(|x, y| y.known_avg_slope.total_cmp(&x.known_avg_slope));
         //lines = lines.into_iter().filter(|it| {
@@ -472,7 +472,7 @@ impl InstantLidarLocalizer {
         let len = lines.len();
         lines.reduce();
         let count = lines.iter().filter(|x| x.points[0] == x.points[1]).count();
-        println!("reducing on {} lines done after {} ms (to {} lines), zeros: {}", len, time0.elapsed().as_millis(), lines.len(), count);
+        //println!("reducing on {} lines done after {} ms (to {} lines), zeros: {}", len, time0.elapsed().as_millis(), lines.len(), count);
         InstantLidarLocalizer { altered_point_list: altered_points, lines }
     }
 }
