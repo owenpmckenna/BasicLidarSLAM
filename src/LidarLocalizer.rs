@@ -72,7 +72,7 @@ impl LidarLocalizer {
             for (test_index, known_line) in self.lines.iter()
                 .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
                 SECOND_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
-                let too_far_along = dist(midpoint, known_line.mid) > known_line.length / 2.0;
+                let too_far_along = dist(midpoint, known_line.mid) > known_line.length;
                 let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
                 let too_far_away = dist > movement_limit;
                 if too_far_along && !too_far_away {
@@ -186,6 +186,8 @@ impl LidarLocalizer {
                 let tests = TESTS_COUNT.load(Ordering::SeqCst);
                 let second_tests = SECOND_TESTS_COUNT.load(Ordering::SeqCst);
                 let good_tests = GOOD_TESTS_COUNT.load(Ordering::SeqCst);
+                println!("fp: {:?}", self.lines[0]);
+                println!("fp2: {:?}", instant.lines[0].as_line());
                 println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit);
                 TOO_LONG_COUNT.store(0, Ordering::SeqCst);
                 TOO_FAR_COUNT.store(0, Ordering::SeqCst);
@@ -203,7 +205,7 @@ impl LidarLocalizer {
         tmp
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[derive(Clone, Copy)]
 pub struct Line {
     pub mid: (f32, f32),
