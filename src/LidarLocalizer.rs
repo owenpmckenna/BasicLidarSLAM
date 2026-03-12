@@ -186,8 +186,10 @@ impl LidarLocalizer {
                 let tests = TESTS_COUNT.load(Ordering::SeqCst);
                 let second_tests = SECOND_TESTS_COUNT.load(Ordering::SeqCst);
                 let good_tests = GOOD_TESTS_COUNT.load(Ordering::SeqCst);
-                println!("fp: {:?}", self.lines[0]);
-                println!("fp2: {:?}", instant.lines[0].as_line());
+                if self.lines.len() > 0 && instant.lines.len() > 0 {
+                    println!("fp: {:?}", self.lines[0]);
+                    println!("fp2: {:?}", instant.lines[0].as_line());
+                }
                 println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit);
                 TOO_LONG_COUNT.store(0, Ordering::SeqCst);
                 TOO_FAR_COUNT.store(0, Ordering::SeqCst);
