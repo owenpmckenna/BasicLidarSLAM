@@ -89,7 +89,7 @@ fn main() {
                 x.update_data(|x| x / 6.0 * 400.0);
             }
             //println!("got {} points!", points.len());
-            let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(|x| x / 6.0 * 400.0), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };
+            let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(|x| x /*/ 6.0 * 400.0*/), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };
             tx.send(to_send).unwrap();
             //sleep(Duration::from_millis(50));
         }

@@ -75,10 +75,10 @@ impl LidarLocalizer {
                 let too_far_along = dist(midpoint, known_line.mid) > known_line.length / 2.0;
                 let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
                 let too_far_away = dist > movement_limit;
-                if too_far_along {
+                if too_far_along && !too_far_away {
                     TOO_FAR_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
-                if too_far_away {
+                if too_far_away && !too_far_along {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
                 if dist < best_detections[test_index].1  && !too_far_along && !too_far_away {
