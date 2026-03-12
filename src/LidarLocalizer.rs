@@ -35,6 +35,7 @@ static TOO_LONG_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TOO_FAR_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 static SECOND_TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
+static GOOD_TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 impl LidarLocalizer {
     pub(crate) fn new() -> LidarLocalizer {
         LidarLocalizer {//blank at start
@@ -81,6 +82,7 @@ impl LidarLocalizer {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
                 if dist < best_detections[test_index].1  && !too_far_along && !too_far_away {
+                    GOOD_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
                 }
@@ -168,9 +170,10 @@ impl LidarLocalizer {
         let movement_limit = Self::MOVEMENT_LIMIT * seconds;
         let mut last_center: Option<((f32, f32), SHIFT)> = Some(((0.0, 0.0), (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}))));
         let lines = &instant.lines;
+        let mut first = 6;
         for i in 0..5 {
             match &last_center {
-                None => {}
+                None => {first = i.min(first);}
                 Some((center, shift)) => {
                      last_center = self.test_region(*center, 4.0 / (i as f32).powi(2), 4, lines, movement_limit);
                 }
@@ -182,11 +185,13 @@ impl LidarLocalizer {
                 let too_far =  TOO_FAR_COUNT.load(Ordering::SeqCst);
                 let tests = TESTS_COUNT.load(Ordering::SeqCst);
                 let second_tests = SECOND_TESTS_COUNT.load(Ordering::SeqCst);
-                println!("could not find valid shift... ml{}, tl{}, tf{}, tests{}, 2ndtests{}", movement_limit, too_long, too_far, tests, second_tests);
+                let good_tests = GOOD_TESTS_COUNT.load(Ordering::SeqCst);
+                println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit);
                 TOO_LONG_COUNT.store(0, Ordering::SeqCst);
                 TOO_FAR_COUNT.store(0, Ordering::SeqCst);
                 TESTS_COUNT.store(0, Ordering::SeqCst);
                 SECOND_TESTS_COUNT.store(0, Ordering::SeqCst);
+                GOOD_TESTS_COUNT.store(0, Ordering::SeqCst);
                 self.try_shift((0.0, 0.0), lines, movement_limit).1}
             Some(it) => {it.1.1}
         };

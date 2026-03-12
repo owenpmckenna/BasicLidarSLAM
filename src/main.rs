@@ -8,16 +8,10 @@ mod LidarLocalizer;
 use crate::Lidar::LidarUnit;
 use crate::LidarLocalizer::InstantLidarLocalizer;
 use crate::Webserver::{SendData, SmallData};
-use axum::response::IntoResponse;
 use crossbeam_channel::unbounded;
-use std::error::Error;
-use std::io::Write;
-use std::ops::Add;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
 use tokio::runtime::Runtime;
 
 //use rplidar_drv::{ScanMode, ScanOptions};
@@ -38,7 +32,7 @@ fn cartesian_to_polar_radians_theta(x: f32, y: f32) -> f32 {//no idea if this is
     theta
 }
 fn main() {
-    env_logger::init();
+    //env_logger::init();
     let mut ld = LidarUnit::new().expect("could not get lidar unit");
     println!("created lidar unit!");
     let (tx_points, rx_points) = unbounded::<Vec<(f32, f32)>>();
@@ -87,6 +81,9 @@ fn main() {
         let mut localizer = LidarLocalizer::LidarLocalizer::new();
         loop {
             let (data, ill) = rx_lines.recv().unwrap();
+            if rx_lines.len() > 0 {
+                println!("warning: rx_lines backed up with {} lines", rx_lines.len());
+            }
             let mut old_lines = localizer.process(ill);
             for x in &mut old_lines {
                 x.update_data(|x| x / 6.0 * 400.0);
