@@ -73,16 +73,16 @@ impl LidarLocalizer {
             for (test_index, known_line) in self.lines.iter()
                 .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
                 SECOND_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
-                let too_far_along = dist(midpoint, known_line.mid) > known_line.length * 8.0;
+                //let too_far_along = dist(midpoint, known_line.mid) > known_line.length * 8.0;
                 let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
                 let too_far_away = dist > movement_limit;
-                if too_far_along && !too_far_away {
+                /*if too_far_along && !too_far_away {
                     TOO_FAR_COUNT.fetch_add(1, Ordering::SeqCst);
-                }
-                if too_far_away && !too_far_along {
+                }*/
+                if too_far_away /*&& !too_far_along*/ {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
-                if dist < best_detections[test_index].1 && !too_far_along && !too_far_away {
+                if dist < best_detections[test_index].1 && /* !too_far_along && */ !too_far_away {
                     GOOD_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
