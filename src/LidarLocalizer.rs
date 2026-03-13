@@ -56,7 +56,8 @@ impl LidarLocalizer {
             .collect()
     }
     const RADIANS_SLOPE_LIMIT: f32 = 10.0f32.to_radians();
-    const MOVEMENT_LIMIT: f32 = 22.0;
+    //it's in m/s, you idiot!
+    const MOVEMENT_LIMIT: f32 = 1.0;
     fn try_shift<'a>(&self, by: (f32, f32), lines: &Vec<InstantLine>, movement_limit: f32) -> SHIFT {
         let shift = add(self.pos, by);
         //index is of self.lines, 1 is index of lines, 2 is dist to corresponding self.lines line
@@ -196,7 +197,8 @@ impl LidarLocalizer {
                 TESTS_COUNT.store(0, Ordering::SeqCst);
                 SECOND_TESTS_COUNT.store(0, Ordering::SeqCst);
                 GOOD_TESTS_COUNT.store(0, Ordering::SeqCst);
-                self.try_shift((0.0, 0.0), lines, movement_limit).1}
+                self.try_shift((0.0, 0.0), lines, movement_limit).1
+            }
             Some(it) => {it.1.1}
         };
         let tmp: Vec<Line> = instant.lines.iter().map(|x| x.as_line()).collect();

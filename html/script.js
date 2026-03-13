@@ -66,7 +66,7 @@ document.addEventListener("keydown", (event) => {
         body: JSON.stringify({x: x, y: y, turn: turn})
 	}).then((response) => response.json());
 });
-function redraw(lines) {
+function redraw(lines, full_lines) {
 	ctx.fillStyle = "white";
 	ctx.fillRect(0,0,600,400);
 	ctx.fillStyle = "blue";
@@ -76,7 +76,7 @@ function redraw(lines) {
 	//if (lines.length != 0) {
 	    console.log(lines)
 	//}
-	for (m in lines) {
+	for (m in full_lines) {
 	    //ctx.fillStyle = "green";
 	    //ctx.fillRect(lines[m].mid[0] - xOffset - 2, lines[m].mid[1] - yOffset - 2, 4, 4);
 	    //ctx.fillStyle = "yellow";
@@ -99,6 +99,6 @@ socket.addEventListener("message", (event) => {
 	    number += 1;
 	});
 	console.log("x: " + data.x + ", y: " + data.y)
-	redraw(data.lines);
+	redraw(data.lines, data.full_lines);
 });
 

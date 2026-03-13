@@ -23,3 +23,10 @@ futures-util = { version = "0.3.31", features = ["default", "futures-sink"] }
 lto = "thin"
 #codegen-units = 1
 opt-level = 3
+
+[profile.release.package.BasicLidarSLAM]
+codegen-units = 1 # better optimizations
+opt-level = 3
+
+[profile.release.package."*"]
+opt-level = 1
