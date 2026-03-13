@@ -1,6 +1,13 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
 const serveraddr = "";
+function getMCAddress() {
+    if (serveraddr.length > 0) {
+        return "http://" + serveraddr + "/motorcontrol";
+    } else {
+        return "/motorcontrol"
+    }
+}
 const socket = new WebSocket("/data");
 list = [];
 let max_points = 750;
@@ -36,7 +43,7 @@ document.addEventListener("keyup", (event) => {
 		turn = 0.0;
 	}
 	console.log("sending up...");
-	fetch("http://" + serveraddr + "/motorcontrol", {
+	fetch(getMCAddress(), {
         method: 'POST',
         body: JSON.stringify({x: x, y: y, turn: turn}),
         headers: {
@@ -58,7 +65,8 @@ document.addEventListener("keydown", (event) => {
 	}
 	console.log("sending down...");
 	//socket.send(JSON.stringify({x: x, y: y, turn: turn}));
-	fetch("http://" + serveraddr + "/motorcontrol", {
+
+	fetch(getMCAddress(), {
         method: 'POST',
         headers: {
             "Content-Type": "application/json",
