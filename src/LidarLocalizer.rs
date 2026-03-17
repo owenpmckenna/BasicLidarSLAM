@@ -85,7 +85,7 @@ impl LidarLocalizer {
                 if too_far_away && !too_far_along {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
-                if dist < best_detections[test_index].1 && !too_far_along && !too_far_away {
+                if dist < best_detections[test_index].1 /*&& !too_far_along && !too_far_away*/ {
                     GOOD_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
