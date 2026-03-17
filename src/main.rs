@@ -1,3 +1,4 @@
+#![feature(portable_simd)]
 extern crate core;
 extern crate serialport;
 mod Lidar;

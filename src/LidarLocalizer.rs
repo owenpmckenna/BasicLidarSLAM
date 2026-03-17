@@ -1,15 +1,19 @@
 use crate::{add, cartesian_to_polar_radians_theta};
 use serde::{Deserialize, Serialize};
-use std::f32::consts::PI;
+use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
-    (a-b).abs().min((2.0*PI)-((a-b).abs()))
+    let abs = (a-b).abs();
+    abs.min(TAU-abs)
 }
 fn dist(p0: (f32, f32), p1: (f32, f32)) -> f32 {
     ((p0.0-p1.0).powi(2) + (p0.1-p1.1).powi(2)).sqrt()
+}
+fn dist_no_sqrt(p0: (f32, f32), p1: (f32, f32)) -> f32 {
+    (p0.0-p1.0).powi(2) + (p0.1-p1.1).powi(2)
 }
 fn angle_comp_rad_from_slope(a: f32, b: f32) -> f32 {
     angle_comp_rad(a.atan(), b.atan())
@@ -65,17 +69,20 @@ impl LidarLocalizer {
         for (index, detection) in lines.iter().enumerate() {
             let rad_slope = detection.known_avg_slope;//actually radians ig
             let midpoint = add(detection.mid_point(), shift);
+            let detection_length = detection.dist();
             TESTS_COUNT.fetch_add(self.lines.len(), Ordering::SeqCst);
             for (test_index, known_line) in self.lines.iter()
                 .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
                 SECOND_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
-                let too_far_along = dist(midpoint, known_line.mid) > known_line.length * 8.1;
+                let length = known_line.length.max(detection_length);
+                //square length instead of square rooting the dist.
+                let too_far_along = dist_no_sqrt(midpoint, known_line.mid) > length * length * 8.0;
                 let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
                 let too_far_away = dist > movement_limit;
                 if too_far_along && !too_far_away {
                     TOO_FAR_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
-                if too_far_away /*&& !too_far_along*/ {
+                if too_far_away && !too_far_along {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
                 }
                 if dist < best_detections[test_index].1 && !too_far_along && !too_far_away {
@@ -228,27 +235,33 @@ fn slope(p0: (f32, f32), p1: (f32, f32)) -> f32 {
 //TODO: replace this function I think it's fucked - Owen while trying to write his paper and explain the piece of garbage you're currently looking at
 //TODO: use this ya lazy idiot https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
 fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -> f32 {
+    // Calculate the denominator: sqrt(m^2 + 1)
+    let denominator = (slope.powi(2) + 1.0).sqrt();
+    let inverse_denominator = 1.0 / denominator;
+
+    distance_to_line_speedy(line_point, slope, new_point, inverse_denominator)
+}
+fn distance_to_line_speedy(line_point: (f32, f32), slope: f32, new_point: (f32, f32), inverse_denominator: f32) -> f32 {
     let (x1, y1) = line_point;  // Point on the line
     let (x0, y0) = new_point;   // Point to find the distance to
     //TODO TODO TODO you idiot you mixed up slope and radians like, a *bunch* so fix that asap
     // Calculate the numerator: |m(x0 - x1) - (y0 - y1)|
     let numerator = (slope * (x0 - x1)) - (y0 - y1);
 
-    // Calculate the denominator: sqrt(m^2 + 1)
-    let denominator = (slope.powi(2) + 1.0).sqrt();
-
     // Return the absolute value of the numerator divided by the denominator
-    numerator.abs() / denominator
+    numerator.abs() * inverse_denominator
 }
 fn average_max_dist_to_line(line_point: (f32, f32), slope: f32, line_points: &[(f32, f32)]) -> (f32, f32) {
     let mut max: f32 = 0.0;
-    let x = line_points.iter()
-        .map(|it| {
-            let d = distance_to_line(line_point, slope, *it);
-            max = max.max(d);
-            d
-        });
-    (x.sum::<f32>() / line_points.len() as f32, max)
+    let denominator = (slope.powi(2) + 1.0).sqrt();
+    let inverse_denominator = 1.0 / denominator;
+    let mut total = 0.0;
+    for i in 0..line_points.len() {
+        let d = distance_to_line_speedy(line_point, slope, line_points[i], inverse_denominator);
+        max = max.max(d);
+        total += d;
+    }
+    (total / line_points.len() as f32, max)
 }
 trait Reducible where Self: Sized {
     fn best(a: &Self, b: &Self) -> bool;//true = first best, false = second best
@@ -336,33 +349,34 @@ impl InstantLine {
         dy.atan2(dx)
     }
     //this returns the avg amount that each pair of points' slope (in radians) is different from the avg slope
-    fn compare_avg_slope(points: &[(f32, f32)], avg_slope: f32) -> f32 {
-        let sum: f32 = points
-            .windows(2)
-            .map(|w| {
-                let dx = w[1].0 - w[0].0;
-                let dy = w[1].1 - w[0].1;
-                angle_comp_rad(dy.atan2(dx), avg_slope)
-            })
-            .sum();
+    fn compare_avg_slope(points: &[(f32, f32); Self::INIT_LINE_POINTS], avg_slope: f32) -> f32 {
+        let mut sum = 0.0;
+        for i in 0..(points.len()-1) {
+            let dx = points[i+1].0 - points[i].0;
+            let dy = points[i+1].1 - points[i].1;
+            sum += angle_comp_rad(dy.atan2(dx), avg_slope);
+        }
         sum / (points.len()-1) as f32
     }
     const ALLOWED_INIT_AVG_POINT_DISTANCE: f32 = 0.003;//3 cm
     pub const INIT_LINE_POINTS: usize = 7;
+    const INIT_LINE_POINTS_EXTRA: usize = Self::INIT_LINE_POINTS * 16;
     fn is_line(p: [(f32, f32); Self::INIT_LINE_POINTS]) -> Option<InstantLine> {
         //let mut slopes = [0f32; Self::INIT_LINE_POINTS-1];//must be 1 less than p.len()
         let slope = slope(p[0], *p.last().unwrap());
         let avg_deg_rad = Self::avg_slope(&p);
         let avg_deg_rad_off = Self::compare_avg_slope(&p, avg_deg_rad);
         let (avg_dist, max_dist) = average_max_dist_to_line(p[0], slope, &p);
-        let yes = avg_deg_rad_off.abs() < (Self::WITHIN_DEGREES / 180.0 * PI) && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
+        let yes = avg_deg_rad_off.abs() < Self::WITHIN_DEGREES.to_radians() && avg_dist < Self::ALLOWED_INIT_AVG_POINT_DISTANCE;
         if !yes {
             return None
         }
         //TODO: cache current slope, compare it against other points we might add to solve that slope drift problem. also < computation probably
         //TODO: don't let known_avg slope change later. this stops slope drift from happening, and then we can make point adding criteria much looser
         //TODO: this will require more logic around left and right possibly
-        Some(InstantLine {points: p.to_vec(), known_avg_slope: avg_deg_rad })
+        let mut points = Vec::with_capacity(Self::INIT_LINE_POINTS_EXTRA);
+        points.extend_from_slice(&p);
+        Some(InstantLine {points, known_avg_slope: avg_deg_rad })
     }
     const WITHIN_DEGREES: f32 = 12.5;
     const EQU_WITHIN_DEGREES: f32 = 10.0;
