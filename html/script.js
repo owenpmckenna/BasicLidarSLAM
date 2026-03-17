@@ -8,6 +8,9 @@ function getMCAddress() {
         return "/motorcontrol"
     }
 }
+function a(pos) {
+    return pos / 6.0 * 400.0;
+}
 const socket = new WebSocket("/data");
 list = [];
 let max_points = 750;
@@ -79,7 +82,7 @@ function redraw(lines, full_lines) {
 	ctx.fillRect(0,0,600,400);
 	ctx.fillStyle = "blue";
 	for (m in list) {
-		ctx.fillRect(list[m].x-xOffset, list[m].y-yOffset, 1, 1);
+		ctx.fillRect(a(list[m].x)-xOffset, a(list[m].y)-yOffset, 1, 1);
 	}
 	//if (lines.length != 0) {
 	    console.log(lines)
@@ -92,8 +95,8 @@ function redraw(lines, full_lines) {
 	    ctx.strokeStyle = "orange";
 	    ctx.lineWidth = 3;
 	    ctx.beginPath();
-        ctx.moveTo(full_lines[m].p0[0] - xOffset, full_lines[m].p0[1] - yOffset);
-        ctx.lineTo(full_lines[m].p1[0] - xOffset, full_lines[m].p1[1] - yOffset);
+        ctx.moveTo(a(full_lines[m].p0[0]) - xOffset, a(full_lines[m].p0[1]) - yOffset);
+        ctx.lineTo(a(full_lines[m].p1[0]) - xOffset, a(full_lines[m].p1[1]) - yOffset);
         ctx.stroke();
 	}
 	ctx.fillStyle = "red";

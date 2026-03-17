@@ -14,8 +14,6 @@ use std::thread;
 use std::time::Instant;
 use tokio::runtime::Runtime;
 
-//use rplidar_drv::{ScanMode, ScanOptions};
-//use serial2::SerialPort;
 fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let x = radius * theta_radians.cos();
     let y = radius * theta_radians.sin();
@@ -55,7 +53,6 @@ fn main() {
             let mut points0: Vec<(f32, f32)> = ld.grab_points().expect("could not grab points");
             points0.sort_by(|a, b| a.1.total_cmp(&b.1)); //this shouldn't be needed but this isn't python so we can afford it
             let points: Vec<(f32, f32)> = points0.iter()
-                // / 6.0 * 400.0
                 .map(|it| { polar_to_cartesian_radians(it.0, it.1) })
                 .collect();
             tx_points.send(points).unwrap();
@@ -71,7 +68,7 @@ fn main() {
                 if points.len() < 20 {
                     continue;
                 }
-                let data = points.iter().map(|it| { SmallData { x: (it.0 / 6.0 * 400.0) as i32, y: (it.1 / 6.0 * 400.0) as i32 } }).collect::<Vec<SmallData>>();
+                let data = points.iter().map(|it| { SmallData { x: it.0, y: it.1 } }).collect::<Vec<SmallData>>();
                 let i_localizer = InstantLidarLocalizer::new((0.0, 0.0), 1000.0, &points);
                 tx_lines_arc.send((data, i_localizer)).unwrap();
             }
@@ -85,11 +82,9 @@ fn main() {
                 println!("warning: rx_lines backed up with {} lines", rx_lines.len());
             }
             let mut old_lines = localizer.process(ill);
-            for x in &mut old_lines {
-                x.update_data(|x| x / 6.0 * 400.0);
-            }
+
             //println!("got {} points!", points.len());
-            let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(|x| x /*/ 6.0 * 400.0*/), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };
+            let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };
             tx.send(to_send).unwrap();
             //sleep(Duration::from_millis(50));
         }

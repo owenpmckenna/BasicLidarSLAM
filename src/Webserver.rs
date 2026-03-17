@@ -37,8 +37,8 @@ pub struct RecData {
 }
 #[derive(Serialize, Deserialize)]
 pub struct SmallData {
-    pub x: i32,
-    pub y : i32
+    pub x: f32,
+    pub y : f32
 }
 pub struct Webserver {
     router: Router,
