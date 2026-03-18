@@ -156,7 +156,6 @@ impl LidarLocalizer {
                     i += 1;
                 }
             }
-            it.last_time = Instant::now();
         });
         (score, exe)
     }
@@ -165,6 +164,7 @@ impl LidarLocalizer {
         let mut lowest: SHIFT = (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}));
         let step = dist / (steps as f32);
         //println!("step:{}, dist:{}, steps:{}, {:?}", step, dist, steps as f32, center);
+        let steps = steps + 1;//we add one so a single wierd result early on can't bias it as much.
         for x in -steps..=steps {
             let x = x as f32 * step;
             for y in -steps..=steps {
@@ -185,6 +185,8 @@ impl LidarLocalizer {
     ///returns the old data, updates everything internally
     pub fn process(&mut self, instant: InstantLidarLocalizer) -> Vec<Line> {
         let seconds = (self.last_time.elapsed().as_millis() as f32) / 1000f32;
+        self.last_time = Instant::now();
+
         self.pos.0 += self.vel.0 * seconds;
         self.pos.1 += self.vel.1 * seconds;
         let movement_limit = Self::MOVEMENT_LIMIT * seconds;
@@ -197,7 +199,7 @@ impl LidarLocalizer {
                 Some((center, _)) => {
                     let dist = 1.0 / (i as f32 * 1.5 + 4.0).powi(2);
                     //println!("center: {:?}, i {}", center, i);
-                    last_center = self.test_region(*center, dist, 5, lines, movement_limit);
+                    last_center = self.test_region(*center, dist, 4, lines, movement_limit);
                 }
             }
         }
@@ -226,7 +228,6 @@ impl LidarLocalizer {
 
         fnc(instant.lines, self);
 
-        self.last_time = Instant::now();
         tmp
     }
 }
@@ -473,7 +474,7 @@ impl InstantLine {
             index1 += 1;
         }
         while index1 == other.points.len() && index0 < self.points.len() {
-            Self::maybe_add(other.points[index0], &mut new);
+            Self::maybe_add(self.points[index0], &mut new);
             index0 += 1;
         }
         self.points = new;
