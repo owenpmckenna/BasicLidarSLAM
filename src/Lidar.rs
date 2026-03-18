@@ -40,7 +40,7 @@ impl LidarUnit {
             serial_port,
         );
         let mut dev = RplidarDevice::new(channel);
-        for i in 0..5 {
+        for i in 0..1 {
             let data = dev.get_device_info().expect("could not read device info");
             println!("reading data: i{}, data:{:?}", i, data);
         }

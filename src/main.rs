@@ -82,7 +82,14 @@ fn main() {
             if rx_lines.len() > 0 {
                 println!("warning: rx_lines backed up with {} lines", rx_lines.len());
             }
+            let time = Instant::now();
+            let had_none = localizer.lines.len() == 0;
             let mut old_lines = localizer.process(ill);
+            if had_none {
+                println!("had none! zeroing out position");
+                localizer.pos = (0.0, 0.0);
+            }
+            println!("took {}ms to process!", time.elapsed().as_millis());
 
             //println!("got {} points!", points.len());
             let to_send = SendData { data, lines: old_lines, full_lines: localizer.clone_lines(), x: localizer.pos.0, y: localizer.pos.1, heading: localizer.heading };

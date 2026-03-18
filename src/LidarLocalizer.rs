@@ -4,6 +4,7 @@ use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+#[inline(always)]
 fn angle_comp_rad(a: f32, b: f32) -> f32 {
     //min(abs(a-b), 360-abs(a-b)
     let abs = (a-b).abs();
@@ -57,7 +58,7 @@ impl LidarLocalizer {
     }
     const RADIANS_SLOPE_LIMIT: f32 = 10.0f32.to_radians();
     //it's in m/s, you idiot!
-    const MOVEMENT_LIMIT: f32 = 1.0;
+    const MOVEMENT_LIMIT: f32 = 3.0;
     fn try_shift<'a>(&self, by: (f32, f32), lines: &Vec<InstantLine>, movement_limit: f32) -> SHIFT {
         let shift = add(self.pos, by);
         //index is of self.lines, 1 is index of lines, 2 is dist to corresponding self.lines line
@@ -66,26 +67,39 @@ impl LidarLocalizer {
         let mut unfound: Vec<usize> = (0..lines.len()).collect();
         let mut score = 0.0;
 
-        for (index, detection) in lines.iter().enumerate() {
+        //println!("doing shift test! newlineslen:{}, oldlineslen:{}, shift:{:?}", lines.len(), self.lines.len(), by);
+        for index in 0..lines.len() {
+            //extract data for the comparisons
+            let detection = &lines[index];
             let rad_slope = detection.known_avg_slope;//actually radians ig
             let midpoint = add(detection.mid_point(), shift);
             let detection_length = detection.dist();
             TESTS_COUNT.fetch_add(self.lines.len(), Ordering::SeqCst);
-            for (test_index, known_line) in self.lines.iter()
-                .filter(|it| angle_comp_rad(it.slope_rad, rad_slope) < Self::RADIANS_SLOPE_LIMIT).enumerate() {
+            for test_index in 0..self.lines.len() {
+                let known_line = self.lines[test_index];
+                //make sure they're facing the same dang direction
+                if angle_comp_rad(known_line.slope_rad, rad_slope) > Self::RADIANS_SLOPE_LIMIT {
+                    continue;
+                }
                 SECOND_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                 let length = known_line.length.max(detection_length);
                 //square length instead of square rooting the dist.
-                let too_far_along = dist_no_sqrt(midpoint, known_line.mid) > length * length * 8.0;
-                let dist = distance_to_line(known_line.mid, known_line.slope, midpoint);
-                let too_far_away = dist > movement_limit;
-                if too_far_along && !too_far_away {
+                //test... overlap. the next test can't handle perpendicular things in line with each other. imagine the dashes are lines.
+                // -----          ---
+                //"dist to line" is zero, but they're clearly not the same line
+                let too_far_along = dist_no_sqrt(midpoint, known_line.mid) > length * length;
+                if too_far_along {
                     TOO_FAR_COUNT.fetch_add(1, Ordering::SeqCst);
+                    continue
                 }
-                if too_far_away && !too_far_along {
+                //
+                let dist = distance_to_line_speedy(known_line.mid, known_line.slope, midpoint, known_line.precalc_denominator);
+                let too_far_away = dist > movement_limit;
+                if too_far_away {
                     TOO_LONG_COUNT.fetch_add(1, Ordering::SeqCst);
+                    continue
                 }
-                if dist < best_detections[test_index].1 /*&& !too_far_along && !too_far_away*/ {
+                if dist < best_detections[test_index].1 {
                     GOOD_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
@@ -95,10 +109,11 @@ impl LidarLocalizer {
         let mut lines_found = 0f32;
         for (line, dist) in &best_detections {
             match line {
-                None => {}
+                None => {if *dist != f32::MAX {panic!("wut?")}}
                 Some(index) => {
                     score += dist;
                     lines_found += 1.0;
+                    //println!("ok, did actually find a line!");
                     let index = unfound.iter().position(|it| *it == *index);
                     match index {
                         None => {}
@@ -145,10 +160,11 @@ impl LidarLocalizer {
         });
         (score, exe)
     }
-    fn test_region<'a>(&mut self, center: (f32, f32), dist: f32, steps: isize, lines: &Vec<InstantLine>, movement_limit: f32) -> Option<((f32, f32), SHIFT)> {
+    fn test_region<'a>(&self, center: (f32, f32), dist: f32, steps: isize, lines: &Vec<InstantLine>, movement_limit: f32) -> Option<((f32, f32), SHIFT)> {
         let mut pos = (0.0, 0.0);
         let mut lowest: SHIFT = (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}));
         let step = dist / (steps as f32);
+        //println!("step:{}, dist:{}, steps:{}, {:?}", step, dist, steps as f32, center);
         for x in -steps..=steps {
             let x = x as f32 * step;
             for y in -steps..=steps {
@@ -174,12 +190,14 @@ impl LidarLocalizer {
         let movement_limit = Self::MOVEMENT_LIMIT * seconds;
         let mut last_center: Option<((f32, f32), SHIFT)> = Some(((0.0, 0.0), (f32::MAX, Box::new(move |_: Vec<InstantLine>, _: &mut LidarLocalizer| {}))));
         let lines = &instant.lines;
-        let mut first = 6;
-        for i in 0..5 {
+        let mut first = 1000;
+        for i in 0..31 {
             match &last_center {
                 None => {first = i.min(first);}
-                Some((center, shift)) => {
-                     last_center = self.test_region(*center, 4.0 / (i as f32).powi(2), 4, lines, movement_limit);
+                Some((center, _)) => {
+                    let dist = 1.0 / (i as f32 * 1.5 + 4.0).powi(2);
+                    //println!("center: {:?}, i {}", center, i);
+                    last_center = self.test_region(*center, dist, 5, lines, movement_limit);
                 }
             }
         }
@@ -221,6 +239,8 @@ pub struct Line {
     pub length: f32,
     pub p0: (f32, f32),//debug values. start and end positions
     pub p1: (f32, f32),
+    #[serde(skip_serializing)]
+    pub precalc_denominator: f32,
     ///roughly, how many times this line had been detected
     pub detection_strength: usize,
     pub detection_tries: usize
@@ -235,11 +255,15 @@ fn slope(p0: (f32, f32), p1: (f32, f32)) -> f32 {
 //TODO: replace this function I think it's fucked - Owen while trying to write his paper and explain the piece of garbage you're currently looking at
 //TODO: use this ya lazy idiot https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
 fn distance_to_line(line_point: (f32, f32), slope: f32, new_point: (f32, f32)) -> f32 {
+    let inverse_denominator = calc_denom_for_dtl(slope);
+
+    distance_to_line_speedy(line_point, slope, new_point, inverse_denominator)
+}
+fn calc_denom_for_dtl(slope: f32) -> f32 {
     // Calculate the denominator: sqrt(m^2 + 1)
     let denominator = (slope.powi(2) + 1.0).sqrt();
     let inverse_denominator = 1.0 / denominator;
-
-    distance_to_line_speedy(line_point, slope, new_point, inverse_denominator)
+    inverse_denominator
 }
 fn distance_to_line_speedy(line_point: (f32, f32), slope: f32, new_point: (f32, f32), inverse_denominator: f32) -> f32 {
     let (x1, y1) = line_point;  // Point on the line
@@ -253,8 +277,7 @@ fn distance_to_line_speedy(line_point: (f32, f32), slope: f32, new_point: (f32, 
 }
 fn average_max_dist_to_line(line_point: (f32, f32), slope: f32, line_points: &[(f32, f32)]) -> (f32, f32) {
     let mut max: f32 = 0.0;
-    let denominator = (slope.powi(2) + 1.0).sqrt();
-    let inverse_denominator = 1.0 / denominator;
+    let inverse_denominator = calc_denom_for_dtl(slope);
     let mut total = 0.0;
     for i in 0..line_points.len() {
         let d = distance_to_line_speedy(line_point, slope, line_points[i], inverse_denominator);
@@ -291,7 +314,7 @@ impl Reducible for InstantLine {
                 }
             }
         }
-        return false
+        false
         /*let find = self.points.iter().enumerate().find_map(|(i, it)| {
             let x = other.points.iter().enumerate().find(|(_i2, it2)| it.eq(it2));
             match x {
@@ -329,7 +352,8 @@ impl InstantLine {
             println!("points! {:?}", self.points);
             panic!("ending...");
         }
-        Line {mid, slope, slope_rad: slope.atan(), length, p0: self.points[0], p1: *self.points.last().unwrap(), detection_strength: 0, detection_tries: 0}
+        let precalc_denominator = calc_denom_for_dtl(slope);
+        Line {mid, slope, slope_rad: slope.atan(), length, p0: self.points[0], p1: *self.points.last().unwrap(), precalc_denominator, detection_strength: 0, detection_tries: 0}
     }
     fn into_line(self) -> Line {
         self.as_line()
@@ -419,26 +443,23 @@ impl InstantLine {
             }
         }
     }
-    fn combine(&mut self, other: InstantLine) {
+    //the polar_theta_0/1 arrays are large enough for what we're doing and are more or less scratch space.
+    fn combine(&mut self, other: InstantLine, polar_theta_0: &mut [f32], polar_theta_1: &mut [f32]) {
         let mut new: Vec<(f32, f32)> = Vec::with_capacity(self.points.len() + other.points.len());
+        for i in 0..self.points.len() {
+            polar_theta_0[i] = cartesian_to_polar_radians_theta(self.points[i].0, self.points[i].1);
+        }
+        for i in 0..other.points.len() {
+            polar_theta_1[i] = cartesian_to_polar_radians_theta(other.points[i].0, other.points[i].1);
+        }
         //assume both sorted :sob:
         let mut index0 = 0usize;
         let mut index1 = 0usize;
-        while index0 < self.points.len() || index1 < other.points.len() {
-            if index0 == self.points.len() {
-                Self::maybe_add(other.points[index1], &mut new);
-                index1 += 1;
-                continue
-            }
-            if index1 == other.points.len() {
-                Self::maybe_add(self.points[index0], &mut new);
-                index0 += 1;
-                continue
-            }
+        while index0 < self.points.len() && index1 < other.points.len() {
             let p0 = self.points[index0];
             let p1 = other.points[index1];
-            let o0 = cartesian_to_polar_radians_theta(p0.0, p0.1);
-            let o1 = cartesian_to_polar_radians_theta(p1.0, p1.1);
+            let o0 = polar_theta_0[index0];
+            let o1 = polar_theta_1[index1];
             if o0 > o1 {
                 Self::maybe_add(p1, &mut new);
                 index1 += 1
@@ -446,6 +467,14 @@ impl InstantLine {
                 Self::maybe_add(p0, &mut new);
                 index0 += 1
             }
+        }
+        while index0 == self.points.len() && index1 < other.points.len() {
+            Self::maybe_add(other.points[index1], &mut new);
+            index1 += 1;
+        }
+        while index1 == other.points.len() && index0 < self.points.len() {
+            Self::maybe_add(other.points[index0], &mut new);
+            index0 += 1;
         }
         self.points = new;
         self.known_avg_slope = self.self_avg_slope();
@@ -516,6 +545,8 @@ trait Reduce<T> where Self: Sized, T: Reducible {
 impl Reduce<InstantLine> for Vec<InstantLine> {
     fn reduce(&mut self) {
         let mut len = self.len();
+        let mut tmp0 = vec![0f32; 5000];//5000 is enough for what we're doing, it's kinda just, arbitrarily large to give space to cache calculations
+        let mut tmp1 = vec![0f32; 5000];
         for x in 0..len {
             if x >= len {//guard
                 continue
@@ -528,7 +559,7 @@ impl Reduce<InstantLine> for Vec<InstantLine> {
                         self.swap(x, y);
                     }
                     let old = self.remove(y);
-                    self[x].combine(old);
+                    self[x].combine(old, &mut tmp0, &mut tmp1);
                 } else {
                     y += 1;
                 }
