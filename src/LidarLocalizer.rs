@@ -1,6 +1,7 @@
 use crate::{add, cartesian_to_polar_radians_theta};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
+use std::simd::usizex1;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -41,6 +42,7 @@ static TOO_FAR_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 static SECOND_TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 static GOOD_TESTS_COUNT: AtomicUsize = AtomicUsize::new(0);
+static REMOVED_LINES_COUNT: AtomicUsize = AtomicUsize::new(0);
 impl LidarLocalizer {
     pub(crate) fn new() -> LidarLocalizer {
         LidarLocalizer {//blank at start
@@ -56,13 +58,14 @@ impl LidarLocalizer {
         self.lines.iter().map(|it| it.clone())
             .collect()
     }
-    const RADIANS_SLOPE_LIMIT: f32 = 10.0f32.to_radians();
+    const RADIANS_SLOPE_LIMIT: f32 = 7.5f32.to_radians();
     //it's in m/s, you idiot!
     const MOVEMENT_LIMIT: f32 = 3.0;
     fn try_shift<'a>(&self, by: (f32, f32), lines: &Vec<InstantLine>, movement_limit: f32) -> SHIFT {
         let shift = add(self.pos, by);
         //index is of self.lines, 1 is index of lines, 2 is dist to corresponding self.lines line
         let mut best_detections: Vec<(Option<usize>, f32)> = vec![(None, f32::MAX); self.lines.len()];
+        let mut did_find: Vec<(Option<usize>, f32)> = vec![(None, f32::MAX); lines.len()];
         //this is a list of the indexes of the InstantLines we didn't find in the known lines
         let mut unfound: Vec<usize> = (0..lines.len()).collect();
         let mut score = 0.0;
@@ -70,6 +73,7 @@ impl LidarLocalizer {
         //println!("doing shift test! newlineslen:{}, oldlineslen:{}, shift:{:?}", lines.len(), self.lines.len(), by);
         for index in 0..lines.len() {
             //extract data for the comparisons
+            //10:30-11:30 tuesday
             let detection = &lines[index];
             let rad_slope = detection.known_avg_slope;//actually radians ig
             let midpoint = add(detection.mid_point(), shift);
@@ -103,6 +107,10 @@ impl LidarLocalizer {
                     GOOD_TESTS_COUNT.fetch_add(1, Ordering::SeqCst);
                     best_detections[test_index].0 = Some(index);
                     best_detections[test_index].1 = dist;
+                }
+                if dist < did_find[index].1 {
+                    did_find[index].0 = Some(test_index);
+                    did_find[index].1 = dist;
                 }
             }
         }
@@ -141,6 +149,17 @@ impl LidarLocalizer {
                 }
             }
 
+            for i in 0..did_find.len() {
+                if let None = did_find[i].0 {
+                    continue;
+                }
+                let index = unfound.iter().position(|it| *it == i);
+                match index {
+                    None => {}
+                    Some(it) => {unfound.remove(it);}
+                };
+            }
+
             //type gymnastics to put every ILine whose id is in unfound
             lines.into_iter().enumerate()
                 .filter(|(x, y)| unfound.iter().find(|it| **it == *x).is_some())
@@ -150,7 +169,8 @@ impl LidarLocalizer {
             let mut i = 0;
             while i < it.lines.len() {
                 let line = &it.lines[i];
-                if line.detection_tries == 3 && line.detection_strength < 3 {
+                const CONTINOUS_DETECTIONS: usize = 5;//ends up being like .5 seconds ish
+                if line.detection_tries == CONTINOUS_DETECTIONS && line.detection_strength < CONTINOUS_DETECTIONS {
                     it.lines.remove(i);
                 } else {
                     i += 1;
@@ -203,23 +223,20 @@ impl LidarLocalizer {
                 }
             }
         }
+        self.reduce();
         let fnc = match last_center {
             None => {
-                let too_long = TOO_LONG_COUNT.load(Ordering::SeqCst);
-                let too_far =  TOO_FAR_COUNT.load(Ordering::SeqCst);
-                let tests = TESTS_COUNT.load(Ordering::SeqCst);
-                let second_tests = SECOND_TESTS_COUNT.load(Ordering::SeqCst);
-                let good_tests = GOOD_TESTS_COUNT.load(Ordering::SeqCst);
+                let too_long = TOO_LONG_COUNT.swap(0, Ordering::SeqCst);
+                let too_far =  TOO_FAR_COUNT.swap(0, Ordering::SeqCst);
+                let tests = TESTS_COUNT.swap(0, Ordering::SeqCst);
+                let second_tests = SECOND_TESTS_COUNT.swap(0, Ordering::SeqCst);
+                let good_tests = GOOD_TESTS_COUNT.swap(0, Ordering::SeqCst);
+                let removed_lines = REMOVED_LINES_COUNT.swap(0, Ordering::SeqCst);
                 if self.lines.len() > 0 && instant.lines.len() > 0 {
                     println!("fp: {:?}", self.lines[0]);
                     println!("fp2: {:?}", instant.lines[0].as_line());
                 }
-                println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit);
-                TOO_LONG_COUNT.store(0, Ordering::SeqCst);
-                TOO_FAR_COUNT.store(0, Ordering::SeqCst);
-                TESTS_COUNT.store(0, Ordering::SeqCst);
-                SECOND_TESTS_COUNT.store(0, Ordering::SeqCst);
-                GOOD_TESTS_COUNT.store(0, Ordering::SeqCst);
+                println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}, lr{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit, removed_lines);
                 self.try_shift((0.0, 0.0), lines, movement_limit).1
             }
             Some(it) => {it.1.1}
@@ -229,6 +246,26 @@ impl LidarLocalizer {
         fnc(instant.lines, self);
 
         tmp
+    }
+    pub fn reduce(&mut self) {
+        let mut lines = self.lines;
+        let mut x = 0;
+        while x < self.lines.len() {
+            let mut y = x + 1;
+            while y < self.lines.len() {
+                if lines[x].is_equivalent(&lines[y]) {
+                    //remove whichever one is newer
+                    if lines[x].detection_tries < lines[y].detection_tries {
+                        self.swap(x, y);
+                    }
+                    lines.remove(y);
+                    REMOVED_LINES_COUNT.fetch_add(1, Ordering::SeqCst);
+                } else {
+                    y += 1;
+                }
+            }
+            x += 1;
+        }
     }
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -245,6 +282,24 @@ pub struct Line {
     ///roughly, how many times this line had been detected
     pub detection_strength: usize,
     pub detection_tries: usize
+}
+
+impl Line {
+    pub fn is_equivalent(&self, other: &Line) -> bool {
+        if angle_comp_rad(self.slope_rad, self.slope_rad) > LidarLocalizer::RADIANS_SLOPE_LIMIT {
+            return false;
+        }
+        let len = self.length.max(other.length) / 2.0;
+        if dist_no_sqrt(self.mid, other.mid) > len * len {
+            return false;
+        }
+        let dist = distance_to_line_speedy(self.mid, self.slope, other.mid, self.precalc_denominator);
+        //only good if:
+        //1. facing same direction
+        //2. midpoint not outside of line's length
+        //3. parallel dist < than 3 cm
+        dist < 0.03
+    }
 }
 
 impl Line {}
@@ -291,7 +346,7 @@ trait Reducible where Self: Sized {
     fn best(a: &Self, b: &Self) -> bool;//true = first best, false = second best
     fn are_equivalent(&self, o: &Self) -> bool;
 }
-struct InstantLine {
+pub struct InstantLine {
     points: Vec<(f32, f32)>,
     ///in radians
     known_avg_slope: f32
