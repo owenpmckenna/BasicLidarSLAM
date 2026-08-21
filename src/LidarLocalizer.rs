@@ -203,7 +203,7 @@ impl LidarLocalizer {
         }
     }
     ///returns the old data, updates everything internally
-    pub fn process(&mut self, instant: InstantLidarLocalizer) -> Vec<Line> {
+    pub fn process(&mut self, mut instant: InstantLidarLocalizer) -> Vec<Line> {
         let seconds = (self.last_time.elapsed().as_millis() as f32) / 1000f32;
         self.last_time = Instant::now();
 
@@ -223,42 +223,45 @@ impl LidarLocalizer {
                 }
             }
         }
-        self.reduce();
+
+        let shift_text = match &last_center {
+            None => {"(NULL)".to_string()}
+            Some(it) => {format!("{:?}", it.0)}
+        };
         let fnc = match last_center {
             None => {
-                let too_long = TOO_LONG_COUNT.swap(0, Ordering::SeqCst);
-                let too_far =  TOO_FAR_COUNT.swap(0, Ordering::SeqCst);
-                let tests = TESTS_COUNT.swap(0, Ordering::SeqCst);
-                let second_tests = SECOND_TESTS_COUNT.swap(0, Ordering::SeqCst);
-                let good_tests = GOOD_TESTS_COUNT.swap(0, Ordering::SeqCst);
-                let removed_lines = REMOVED_LINES_COUNT.swap(0, Ordering::SeqCst);
-                if self.lines.len() > 0 && instant.lines.len() > 0 {
-                    println!("fp: {:?}", self.lines[0]);
-                    println!("fp2: {:?}", instant.lines[0].as_line());
-                }
-                println!("could not find valid shift... firstfail{}, tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}, lr{}", first, too_long, too_far, tests, second_tests, good_tests, movement_limit, removed_lines);
+                println!("could not find valid shift... firstfail{}", first);
                 self.try_shift((0.0, 0.0), lines, movement_limit).1
             }
             Some(it) => {it.1.1}
         };
-        let tmp: Vec<Line> = instant.lines.iter().map(|x| x.as_line()).collect();
+        let tmp: Vec<Line> = instant.lines.iter_mut().map(|x| x.as_line_full()).collect();
 
         fnc(instant.lines, self);
+
+        self.reduce();
+
+        let too_long = TOO_LONG_COUNT.swap(0, Ordering::SeqCst);
+        let too_far =  TOO_FAR_COUNT.swap(0, Ordering::SeqCst);
+        let tests = TESTS_COUNT.swap(0, Ordering::SeqCst);
+        let second_tests = SECOND_TESTS_COUNT.swap(0, Ordering::SeqCst);
+        let good_tests = GOOD_TESTS_COUNT.swap(0, Ordering::SeqCst);
+        let removed_lines = REMOVED_LINES_COUNT.swap(0, Ordering::SeqCst);
+        println!("did shift: tl{}, tf{}, tests{}, 2ndtests{}, goods{}, ml{}, lr{}, pos:{}", too_long, too_far, tests, second_tests, good_tests, movement_limit, removed_lines, shift_text);
 
         tmp
     }
     pub fn reduce(&mut self) {
-        let mut lines = self.lines;
         let mut x = 0;
         while x < self.lines.len() {
             let mut y = x + 1;
             while y < self.lines.len() {
-                if lines[x].is_equivalent(&lines[y]) {
+                if self.lines[x].is_equivalent(&self.lines[y]) {
                     //remove whichever one is newer
-                    if lines[x].detection_tries < lines[y].detection_tries {
-                        self.swap(x, y);
+                    if self.lines[x].detection_tries < self.lines[y].detection_tries {
+                        self.lines.swap(x, y);
                     }
-                    lines.remove(y);
+                    self.lines.remove(y);
                     REMOVED_LINES_COUNT.fetch_add(1, Ordering::SeqCst);
                 } else {
                     y += 1;
@@ -297,8 +300,8 @@ impl Line {
         //only good if:
         //1. facing same direction
         //2. midpoint not outside of line's length
-        //3. parallel dist < than 3 cm
-        dist < 0.03
+        //3. parallel dist < than 5 cm
+        dist < 0.05
     }
 }
 
@@ -399,20 +402,33 @@ impl InstantLine {
     fn dist(&self) -> f32 {
         dist(self.points[0], self.points[self.points.len()-1])
     }
-    fn as_line(&self) -> Line {
+    fn as_line(&self) -> Option<Line> {
         let mid = self.mid_point();
         let slope = slope(self.points[0], *self.points.last().unwrap());
         let length = dist(self.points[0], *self.points.last().unwrap());
         if length == 0.0 {
             println!("length 0! p0: {:?}, last: {:?} --- len:{}", self.points[0], self.points.last().unwrap(), self.points.len());
             println!("points! {:?}", self.points);
-            panic!("ending...");
+            //panic!("ending...");
+            return None
         }
         let precalc_denominator = calc_denom_for_dtl(slope);
-        Line {mid, slope, slope_rad: slope.atan(), length, p0: self.points[0], p1: *self.points.last().unwrap(), precalc_denominator, detection_strength: 0, detection_tries: 0}
+        Some(Line {mid, slope, slope_rad: slope.atan(), length, p0: self.points[0], p1: *self.points.last().unwrap(), precalc_denominator, detection_strength: 0, detection_tries: 0})
     }
-    fn into_line(self) -> Line {
-        self.as_line()
+    fn as_line_full(&mut self) -> Line {
+       loop {
+           if self.points.len() == 0 {
+               panic!("bad line!!!");
+           }
+           if let Some(it) = self.as_line() {
+               return it;
+           } else {
+               self.points.remove(0);
+           }
+       }
+    }
+    fn into_line(mut self) -> Line {
+        self.as_line_full()
     }
     fn avg_point_dist_from_center(&self) -> f32 {
         let mid = self.mid_point();

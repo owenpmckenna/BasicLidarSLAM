@@ -5,6 +5,7 @@ mod Lidar;
 mod Drivetrain;
 mod Webserver;
 mod LidarLocalizer;
+pub mod imu_utils;
 
 use crate::Lidar::LidarUnit;
 use crate::LidarLocalizer::InstantLidarLocalizer;
@@ -13,7 +14,10 @@ use crossbeam_channel::unbounded;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
+use lsm6dsox::{AccelerometerScale, DataRate, SlaveAddress};
+use lsm6dsox::accelerometer::Accelerometer;
 use tokio::runtime::Runtime;
+use crate::imu_utils::get_imu_device;
 
 fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let x = radius * theta_radians.cos();
@@ -31,6 +35,8 @@ fn cartesian_to_polar_radians_theta(x: f32, y: f32) -> f32 {//no idea if this is
     theta
 }
 fn main() {
+    let imu = get_imu_device();
+    return;
     //env_logger::init();
     let mut ld = LidarUnit::new().expect("could not get lidar unit");
     println!("created lidar unit!");
