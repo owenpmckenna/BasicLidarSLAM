@@ -6,18 +6,21 @@ mod Drivetrain;
 mod Webserver;
 mod LidarLocalizer;
 pub mod imu_utils;
+pub mod sidestep_utils;
 
+use std::iter::Sum;
 use crate::Lidar::LidarUnit;
 use crate::LidarLocalizer::InstantLidarLocalizer;
 use crate::Webserver::{SendData, SmallData};
 use crossbeam_channel::unbounded;
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use lsm6dsox::{AccelerometerScale, DataRate, SlaveAddress};
 use lsm6dsox::accelerometer::Accelerometer;
+use lsm6dsox::accelerometer::vector::F32x3;
 use tokio::runtime::Runtime;
-use crate::imu_utils::get_imu_device;
+use crate::imu_utils::{calculate_wrongness, get_imu_device, print_accel_data, F323};
 
 fn polar_to_cartesian_radians(radius: f32, theta_radians: f32) -> (f32, f32) {
     let x = radius * theta_radians.cos();
@@ -35,7 +38,46 @@ fn cartesian_to_polar_radians_theta(x: f32, y: f32) -> f32 {//no idea if this is
     theta
 }
 fn main() {
-    let imu = get_imu_device();
+    let mut imu = get_imu_device();
+    let wrong = calculate_wrongness(&mut imu);
+    thread::sleep(Duration::from_secs(5));
+    let mut pos = F323::default();
+    let mut vel = F323::default();
+    const ISTEPS: usize = 2;
+    let mut istep = 0;
+    let istep_mul = 1.0 / ISTEPS as f32;
+    let mut old = [F323::new(0.0, 0.0, 0.0); ISTEPS];
+    const ISTEPS_VEL: usize = 2;
+    let mut istep_vel = 0;
+    let istep_mul_vel = 1.0 / ISTEPS_VEL as f32;
+    let mut old_vel = [F323::new(0.0, 0.0, 0.0); ISTEPS_VEL];
+    let mut last_time = Instant::now();
+    let mut start = Instant::now();
+    loop {
+        if let Some(data) = print_accel_data(&mut imu, wrong) {
+            if start.elapsed().as_millis() > 10_000 {
+                //pos = F323::default();
+                //vel = F323::default();
+                start = Instant::now();
+            }
+            let delta = last_time.elapsed().as_micros() as f32 / 1_000_000.0;
+            //println!("dt: {}", delta);
+            last_time = Instant::now();
+            println!("---- accel read: {:+.3}, {:+.3}", data, data * delta);
+            old[istep] = data;
+            let interp_accel = F323::sum(old.iter().map(|it| *it * istep_mul)) * delta;
+            //println!("vel read: x{:+.3}, y{:+.3} z{:+.3}", vel[0], vel[1], vel[2]);
+            //println!("pos read: x{:+.3}, y{:+.3} z{:+.3}", pos.0, pos.1, pos.2);
+            //old_vel[istep_vel] = interp_accel;
+            //vel += old_vel.iter().map(|it| *it * istep_mul_vel).sum();
+            vel += interp_accel;
+            pos += vel * delta;
+            println!("pos read: x{:+.3}, y{:+.3} z{:+.3}", pos[0], pos[1], pos[2]);
+            istep = (istep + 1) % ISTEPS;
+            istep_vel = (istep_vel + 1) % ISTEPS_VEL;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
     return;
     //env_logger::init();
     let mut ld = LidarUnit::new().expect("could not get lidar unit");

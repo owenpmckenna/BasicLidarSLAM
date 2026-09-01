@@ -1,10 +1,15 @@
+use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::sync::Mutex;
 use std::time::Duration;
 use roboclaw::Roboclaw;
 use serialport::{DataBits, FlowControl, Parity, StopBits};
+use sidestep::LightThreadSafe;
+use sidestep::mecanum_drive::{MotorStatus, MotorSupplier};
 
+#[derive()]
 pub struct Drivetrain {
-    r1: Roboclaw,
-    r2: Roboclaw,
+    r1: Mutex<Roboclaw>,
+    r2: Mutex<Roboclaw>,
     pub x: f32,
     pub y: f32,
     pub turn: f32,
@@ -28,7 +33,7 @@ impl Drivetrain {
             .timeout(Duration::from_millis(100))
             .open().unwrap();
         let mut rc_2 = Roboclaw::new(serial_port_2);
-        Drivetrain {r1: rc, r2: rc_2, x: 0.0, y: 0.0, turn: 0.0, s: 1.0 }
+        Drivetrain {r1: Mutex::new(rc), r2: Mutex::new(rc_2), x: 0.0, y: 0.0, turn: 0.0, s: 1.0 }
     }
 
     pub fn power(&mut self) -> std::io::Result<()> {
@@ -51,31 +56,72 @@ impl Drivetrain {
         self.set_fr(-(speed * 255.0) as i16)
     }
     fn set_bl(&mut self, speed: i16) -> std::io::Result<()> {//ok actually a u8 but whatever. [-255, 255]
+        let mut r2 = self.r2.lock().unwrap();
         if speed > 0 {
-            self.r2.forward_m2(speed as u8)
+            r2.forward_m2(speed as u8)
         } else {
-            self.r2.backward_m2((-speed) as u8)
+            r2.backward_m2((-speed) as u8)
         }
     }
     fn set_fl(&mut self, speed: i16) -> std::io::Result<()> {//ok actually a u8 but whatever. [-255, 255]
+        let mut r2 = self.r2.lock().unwrap();
         if speed > 0 {
-            self.r2.forward_m1(speed as u8)
+            r2.forward_m1(speed as u8)
         } else {
-            self.r2.backward_m1((-speed) as u8)
+            r2.backward_m1((-speed) as u8)
         }
     }
     fn set_fr(&mut self, speed: i16) -> std::io::Result<()> {//ok actually a u8 but whatever. [-255, 255]
+        let mut r1 = self.r1.lock().unwrap();
         if speed > 0 {
-            self.r1.forward_m2(speed as u8)
+            r1.forward_m2(speed as u8)
         } else {
-            self.r1.backward_m2((-speed) as u8)
+            r1.backward_m2((-speed) as u8)
         }
     }
     fn set_br(&mut self, speed: i16) -> std::io::Result<()> {//ok actually a u8 but whatever. [-255, 255]
+        let mut r1 = self.r1.lock().unwrap();
         if speed > 0 {
-            self.r1.forward_m1(speed as u8)
+            r1.forward_m1(speed as u8)
         } else {
-            self.r1.backward_m1((-speed) as u8)
+            r1.backward_m1((-speed) as u8)
+        }
+    }
+}
+
+impl UnwindSafe for Drivetrain {}
+
+impl RefUnwindSafe for Drivetrain {}
+
+impl MotorSupplier for Drivetrain {
+    fn set_power(&mut self, fl: MotorStatus, fr: MotorStatus, bl: MotorStatus, br: MotorStatus) {
+        match fl {
+            MotorStatus::Power(it) => {
+                self.fl_power(it).unwrap();
+            }
+            MotorStatus::Float => {}
+            MotorStatus::Brake => {}
+        }
+        match fr {
+            MotorStatus::Power(it) => {
+                self.fr_power(it).unwrap();
+            }
+            MotorStatus::Float => {}
+            MotorStatus::Brake => {}
+        }
+        match bl {
+            MotorStatus::Power(it) => {
+                self.bl_power(it).unwrap();
+            }
+            MotorStatus::Float => {}
+            MotorStatus::Brake => {}
+        }
+        match br {
+            MotorStatus::Power(it) => {
+                self.br_power(it).unwrap();
+            }
+            MotorStatus::Float => {}
+            MotorStatus::Brake => {}
         }
     }
 }
